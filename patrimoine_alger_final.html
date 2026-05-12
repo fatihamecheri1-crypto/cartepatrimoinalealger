@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="fr" id="html-root">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
+<title>Carte du Patrimoine — Wilaya d'Alger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* ══ VARIABLES ══ */
+:root{
+  --gold:#C9973A;--gold-l:#E8C47A;--gold-p:#F5EDD5;--gold-d:#9A6E20;
+  --ink:#1A1209;--ink-m:#3D2E18;--ink-l:#6B5A3E;
+  --cream:#FAF6EE;--cream-d:#EDE3CC;--cream-dd:#D9CCB0;
+  --teal:#2A6B6B;
+  --sh:0 4px 24px rgba(26,18,9,.10);--sh-lg:0 20px 60px rgba(26,18,9,.18);
+  --nav:62px;--sw:360px;--r:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--cream);overflow:hidden}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--cream-d);border-radius:4px}
+
+/* ══ NAV ══ */
+nav{position:fixed;top:0;left:0;right:0;height:var(--nav);background:var(--ink);z-index:3000;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid rgba(201,151,58,.12)}
+.nb{display:flex;align-items:center;gap:10px;cursor:pointer;flex-shrink:0}
+.nl{width:34px;height:34px;background:var(--gold);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.nt h1{font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--gold-l);letter-spacing:.02em;line-height:1.15}
+.nt p{font-family:'Amiri',serif;font-size:10px;color:rgba(201,151,58,.5);direction:rtl}
+.nlinks{display:flex;gap:2px;align-items:center}
+.nlink{padding:6px 11px;border-radius:8px;font-size:12px;font-weight:500;color:rgba(250,246,238,.6);cursor:pointer;border:none;background:transparent;transition:all .18s;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.nlink:hover{color:var(--gold-l);background:rgba(201,151,58,.08)}.nlink.act{color:var(--gold);background:rgba(201,151,58,.13)}
+.ncta{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;background:var(--gold);color:var(--ink);border:none;cursor:pointer;transition:all .18s;margin-left:4px;font-family:'DM Sans',sans-serif}
+.ncta:hover{background:var(--gold-l);transform:translateY(-1px)}
+/* Language switcher */
+.lang-sw{display:flex;gap:2px;background:rgba(255,255,255,.07);border:1px solid rgba(201,151,58,.2);border-radius:20px;padding:3px;margin-left:8px}
+.lang-btn{padding:3px 9px;border-radius:16px;border:none;background:transparent;color:rgba(250,246,238,.55);font-size:11px;font-weight:700;cursor:pointer;transition:all .18s;font-family:'DM Sans',sans-serif;letter-spacing:.03em}
+.lang-btn:hover{color:var(--gold-l)}.lang-btn.act{background:var(--gold);color:var(--ink)}
+.hbg{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:6px;background:none;border:none}
+.hbg span{display:block;width:22px;height:2px;background:var(--gold-l);border-radius:2px}
+.mob-menu{display:none;position:fixed;top:var(--nav);left:0;right:0;background:var(--ink);z-index:2999;padding:8px;border-top:1px solid rgba(201,151,58,.12);flex-direction:column;gap:3px}
+.mob-menu.open{display:flex}.mob-menu .nlink{color:var(--gold-l);padding:10px 16px;font-size:13px}
+
+/* ══ PAGES ══ */
+.pg{position:fixed;inset:var(--nav) 0 0 0;overflow-y:auto;display:none;background:var(--cream)}.pg.act{display:block}
+#pg-map{display:none;flex-direction:row}#pg-map.act{display:flex}
+
+/* ══ HERO ANIMATED ══ */
+.hero{position:relative;height:calc(100vh - var(--nav));min-height:560px;background:var(--ink);overflow:hidden;display:flex;align-items:center;justify-content:center}
+/* Slideshow */
+.hero-slides{position:absolute;inset:0;z-index:0}
+.hero-slide{position:absolute;inset:0;opacity:0;transition:opacity 1.4s ease;background-size:cover;background-position:center}
+.hero-slide.act{opacity:1}
+.hero-slide::after{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(26,18,9,.45) 0%,rgba(26,18,9,.72) 100%)}
+/* Overlay patterns */
+.hero-pat{position:absolute;inset:0;z-index:1;pointer-events:none}
+.hero-pat::before{content:'';position:absolute;inset:0;opacity:.08;background-image:radial-gradient(circle,var(--gold) 1px,transparent 1px);background-size:32px 32px}
+.hero-pat::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 20% 60%,rgba(201,151,58,.12) 0%,transparent 50%),radial-gradient(ellipse at 80% 20%,rgba(42,107,107,.14) 0%,transparent 45%)}
+/* Content */
+.hcnt{position:relative;z-index:3;max-width:820px;margin:0 auto;padding:0 40px;text-align:center}
+.hbadge{display:inline-flex;align-items:center;gap:8px;background:rgba(201,151,58,.15);border:1px solid rgba(201,151,58,.35);color:var(--gold-l);padding:6px 18px;border-radius:24px;font-size:11.5px;font-weight:600;margin-bottom:28px;letter-spacing:.04em;backdrop-filter:blur(6px)}
+.hcnt h2{font-family:'Cormorant Garamond',serif;font-size:66px;font-weight:600;color:var(--cream);line-height:1.02;margin-bottom:10px;text-shadow:0 2px 20px rgba(0,0,0,.4)}
+.hcnt h2 em{color:var(--gold);font-style:italic}
+.har{font-family:'Amiri',serif;font-size:24px;color:rgba(201,151,58,.55);direction:rtl;margin-bottom:22px;transition:all .3s}
+.hdesc{font-size:14.5px;color:rgba(250,246,238,.55);line-height:1.78;max-width:520px;margin:0 auto 32px}
+.hbtns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.btn-p{padding:13px 28px;border-radius:10px;font-size:13.5px;font-weight:700;background:var(--gold);color:var(--ink);border:none;cursor:pointer;transition:all .2s;box-shadow:0 4px 24px rgba(201,151,58,.35);font-family:'DM Sans',sans-serif}
+.btn-p:hover{background:var(--gold-l);transform:translateY(-2px);box-shadow:0 8px 32px rgba(201,151,58,.45)}
+.btn-s{padding:13px 28px;border-radius:10px;font-size:13.5px;font-weight:500;background:rgba(255,255,255,.08);color:var(--gold-l);border:1.5px solid rgba(201,151,58,.35);cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;backdrop-filter:blur(4px)}
+.btn-s:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,151,58,.1)}
+.hstats{display:flex;justify-content:center;flex-wrap:wrap;border-top:1px solid rgba(201,151,58,.15);margin-top:52px;padding-top:36px}
+.hstat{padding:0 28px;text-align:center;border-right:1px solid rgba(201,151,58,.15)}.hstat:last-child{border-right:none}
+.hstat strong{display:block;font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:600;color:var(--gold);line-height:1}
+.hstat span{font-size:10px;color:rgba(250,246,238,.38);margin-top:5px;display:block;letter-spacing:.05em;text-transform:uppercase}
+/* Slide dots */
+.hero-dots{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);z-index:4;display:flex;gap:7px}
+.hero-dot{width:7px;height:7px;border-radius:50%;background:rgba(201,151,58,.35);border:none;cursor:pointer;transition:all .25s;padding:0}
+.hero-dot.act{background:var(--gold);width:22px;border-radius:4px}
+/* Scroll hint */
+.hero-scroll{position:absolute;bottom:28px;right:32px;z-index:4;display:flex;flex-direction:column;align-items:center;gap:5px;color:rgba(201,151,58,.45);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+.scroll-line{width:1px;height:40px;background:linear-gradient(to bottom,rgba(201,151,58,.4),transparent)}
+
+/* RTL support */
+body.lang-ar{direction:rtl}
+body.lang-ar .har{opacity:1;font-size:30px;color:var(--gold-l)}
+body.lang-ar .hcnt h2{font-family:'Amiri',serif;font-size:54px}
+body.lang-ar .nlinks{flex-direction:row-reverse}
+
+/* ══ SHARED COMPONENTS ══ */
+.slbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;color:var(--gold);font-weight:700;margin-bottom:9px}
+.stitle{font-family:'Cormorant Garamond',serif;font-size:36px;font-weight:600;color:var(--ink);margin-bottom:14px;line-height:1.12}
+.sdesc{font-size:14.5px;color:var(--ink-l);line-height:1.78;max-width:560px;margin-bottom:38px}
+.bdg{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
+.bdc{background:#FFF3D6;color:#8A5A00;border:1px solid rgba(201,151,58,.4)}
+.bdi{background:#D6EEF0;color:#1A5C5C;border:1px solid rgba(74,155,155,.4)}
+.bdt{background:var(--cream-d);color:var(--ink-m);border:1px solid var(--cream-dd)}
+.hsec{max-width:1100px;margin:0 auto;padding:60px 40px}
+.ft{background:var(--ink);padding:24px 40px;text-align:center}
+.ft p{font-size:12px;color:rgba(250,246,238,.4);line-height:1.8}
+
+/* ══ HOME CARDS ══ */
+.fgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.fcard{background:white;border-radius:var(--r);overflow:hidden;border:1px solid var(--cream-d);cursor:pointer;transition:all .25s;box-shadow:0 1px 8px rgba(26,18,9,.05)}
+.fcard:hover{transform:translateY(-5px);box-shadow:var(--sh-lg)}
+.fimg-photo{height:150px;overflow:hidden;position:relative}
+.fimg-photo img{width:100%;height:100%;object-fit:cover;transition:transform .4s}
+.fcard:hover .fimg-photo img{transform:scale(1.06)}
+.fimg-photo .fphoto-credit{position:absolute;bottom:4px;right:6px;font-size:8px;color:rgba(255,255,255,.75);background:rgba(0,0,0,.4);padding:1px 5px;border-radius:3px}
+.fimg-emoji{height:150px;display:flex;align-items:center;justify-content:center;font-size:52px}
+.fbody{padding:14px}
+.ftype{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);font-weight:700;margin-bottom:5px}
+.fname{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;color:var(--ink);margin-bottom:6px;line-height:1.2}
+.fdesc{font-size:11.5px;color:var(--ink-l);line-height:1.62;margin-bottom:10px}
+.feagrid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.feacard{background:white;border-radius:var(--r);padding:22px;border:1px solid var(--cream-d);transition:box-shadow .2s}
+.feacard:hover{box-shadow:var(--sh)}
+.feaico{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:14px}
+.featitle{font-size:14px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.feadesc{font-size:12.5px;color:var(--ink-l);line-height:1.65}
+
+/* ══ MAP ══ */
+.sb{width:var(--sw);background:var(--cream);display:flex;flex-direction:column;border-right:1px solid var(--cream-d);flex-shrink:0;height:100%;z-index:100;overflow:hidden}
+.sa{padding:12px;background:white;border-bottom:1px solid var(--cream-d)}
+.swrap{position:relative;margin-bottom:8px}
+.sico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-l);font-size:13px;pointer-events:none}
+input.si{width:100%;padding:9px 11px 9px 34px;border:1.5px solid var(--cream-d);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12.5px;background:var(--cream);color:var(--ink);outline:none;transition:border-color .2s}
+input.si:focus{border-color:var(--gold)}input.si::placeholder{color:var(--ink-l)}
+.frow-chips{display:flex;gap:4px;flex-wrap:wrap}
+.fchip{padding:4px 10px;border-radius:20px;border:1.5px solid var(--cream-d);background:white;font-size:11px;cursor:pointer;transition:all .15s;color:var(--ink-m);font-weight:500;white-space:nowrap;font-family:'DM Sans',sans-serif}
+.fchip:hover{border-color:var(--gold-d);color:var(--gold-d)}.fchip.act{background:var(--ink);color:var(--gold-l);border-color:var(--ink)}
+.advp{background:var(--cream-d);border-bottom:1px solid var(--cream-dd);padding:11px;display:none;gap:12px;flex-direction:column}
+.advp.open{display:flex}
+.advlbl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-l);margin-bottom:7px}
+.advtags{display:flex;flex-wrap:wrap;gap:5px}
+.atag{padding:3px 10px;border-radius:20px;border:1.5px solid var(--cream-dd);background:white;font-size:11px;cursor:pointer;color:var(--ink-m);transition:all .15s;font-family:'DM Sans',sans-serif}
+.atag:hover{border-color:var(--gold);color:var(--gold)}.atag.sel{background:var(--gold-p);border-color:var(--gold);color:var(--ink-m);font-weight:600}
+.rhdr{padding:8px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--cream-d);background:white}
+.rhdr span{font-size:12px;font-weight:600;color:var(--ink-m)}
+.slist{flex:1;overflow-y:auto;padding:6px}
+.sitm{display:flex;align-items:center;gap:10px;padding:10px;border-radius:9px;cursor:pointer;transition:all .15s;border:1px solid transparent;margin-bottom:3px}
+.sitm:hover{background:white;border-color:var(--cream-d)}.sitm.act{background:var(--gold-p);border-color:rgba(201,151,58,.35)}
+.sico2{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.sn{font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:4px;line-height:1.25}
+#map{flex:1;height:100%;z-index:1}
+.mdot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid white;box-shadow:0 3px 12px rgba(0,0,0,.22);cursor:pointer;font-size:12px;transition:transform .2s}
+.mdot.ma{transform:scale(1.35);box-shadow:0 6px 20px rgba(0,0,0,.32)}
+.cm{background:transparent!important;border:none!important}
+
+/* ══ DETAIL PANEL ══ */
+.dp{position:absolute;right:0;top:0;bottom:0;width:340px;background:white;border-left:1px solid var(--cream-d);z-index:200;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.dp.open{transform:translateX(0)}
+.dh{background:var(--ink);padding:20px;position:relative;flex-shrink:0}
+.dhpat{position:absolute;inset:0;opacity:.06;background-image:repeating-linear-gradient(45deg,var(--gold) 0,var(--gold) 1px,transparent 1px,transparent 20px)}
+.demoji{font-size:36px;margin-bottom:8px;display:block;position:relative}
+.dclose{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;background:rgba(255,255,255,.1);border:none;color:rgba(250,246,238,.6);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.dclose:hover{background:rgba(255,255,255,.18);color:var(--cream)}
+.dhbot h2{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;color:var(--cream);position:relative;line-height:1.25}
+.dbody{flex:1;overflow-y:auto;padding:18px}
+.dphoto-wrap{position:relative;margin-bottom:14px;display:none}
+.dphoto-wrap img{width:100%;height:180px;object-fit:cover;border-radius:10px;display:block}
+.dphoto-credit{position:absolute;bottom:6px;right:8px;font-size:9px;color:rgba(255,255,255,.8);background:rgba(0,0,0,.45);padding:2px 6px;border-radius:4px}
+.dbadges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:13px}
+.ddesc{font-size:12.5px;color:var(--ink-m);line-height:1.72;margin-bottom:16px}
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.dfield{background:var(--cream);border-radius:8px;padding:10px 12px;border:1px solid var(--cream-d)}
+.dflbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-l);margin-bottom:3px}
+.dfval{font-size:12.5px;font-weight:600;color:var(--ink)}
+.dcoords{font-size:11px;color:var(--ink-l);background:var(--cream);border-radius:8px;padding:8px 12px;margin-bottom:14px;border:1px solid var(--cream-d);font-family:monospace}
+.dbtn{width:100%;padding:9px 14px;border-radius:8px;border:1.5px solid var(--cream-d);background:white;font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .18s;margin-bottom:7px;display:flex;align-items:center;justify-content:center;gap:6px;color:var(--ink-m)}
+.dbtn:hover{border-color:var(--gold);color:var(--ink);background:var(--gold-p)}
+.dbtn-fav.on{background:rgba(201,151,58,.1);border-color:var(--gold);color:var(--gold-d)}
+.dbtn-loc{color:var(--teal);border-color:rgba(42,107,107,.3)}.dbtn-loc:hover{background:rgba(42,107,107,.06);border-color:var(--teal);color:var(--teal)}
+.dbtn-gal{color:#7A2A7A;border-color:rgba(122,42,122,.25)}.dbtn-gal:hover{background:rgba(122,42,122,.06);border-color:#7A2A7A;color:#7A2A7A}
+.dqrwrap{display:none;text-align:center;padding:14px;background:var(--cream);border-radius:10px;border:1px solid var(--cream-d);margin-bottom:8px}
+.dqrwrap.show{display:block}
+.dqrwrap p{font-size:11px;color:var(--ink-l);margin-bottom:8px}
+#dqrc canvas,#dqrc img{border-radius:4px;max-width:100%}
+
+/* ══ CIRCUITS ══ */
+.circ-hero{background:linear-gradient(135deg,#1A1209,#2A1A08 50%,#1A2A1A);padding:64px 40px;text-align:center;position:relative;overflow:hidden}
+.circ-hero::before{content:'';position:absolute;inset:0;opacity:.07;background-image:radial-gradient(circle,var(--gold) 1px,transparent 1px);background-size:28px 28px}
+.circ-hero h2{font-family:'Cormorant Garamond',serif;font-size:42px;color:var(--cream);margin-bottom:10px;position:relative}
+.circ-hero p{font-size:14px;color:rgba(250,246,238,.5);max-width:480px;margin:0 auto;position:relative}
+.circ-body{max-width:1100px;margin:0 auto;padding:48px 40px}
+.circ-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:32px}
+.ctab{padding:9px 18px;border-radius:24px;border:2px solid var(--cream-d);background:white;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .2s;font-family:'DM Sans',sans-serif;color:var(--ink-m);display:flex;align-items:center;gap:6px}
+.ctab:hover{border-color:var(--gold);color:var(--gold-d)}.ctab.act{background:var(--ink);color:var(--gold-l);border-color:var(--ink)}
+.circ-card{background:white;border-radius:16px;border:1px solid var(--cream-d);overflow:hidden;box-shadow:var(--sh);display:none}
+.circ-card.act{display:block}
+.circ-banner{height:220px;position:relative;overflow:hidden;display:flex;align-items:flex-end;background:linear-gradient(135deg,var(--ink),var(--ink-m))}
+.circ-banner img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.circ-banner::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(26,18,9,.85) 0%,transparent 60%)}
+.circ-banner-txt{position:relative;z-index:1;padding:22px 24px}
+.circ-banner-txt h3{font-family:'Cormorant Garamond',serif;font-size:28px;color:var(--cream);font-weight:600;margin-bottom:5px}
+.circ-banner-txt p{font-size:13px;color:rgba(250,246,238,.65)}
+.circ-meta{display:flex;gap:18px;padding:16px 24px;border-bottom:1px solid var(--cream-d);flex-wrap:wrap;background:var(--cream)}
+.circ-meta-item{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink-m)}
+.circ-meta-item strong{color:var(--ink);font-weight:600}
+.circ-stops{padding:16px 24px}
+.circ-stop{display:flex;gap:13px;padding:13px 8px;border-bottom:1px solid var(--cream-d);align-items:flex-start;cursor:pointer;border-radius:8px;transition:background .15s}
+.circ-stop:last-child{border-bottom:none}.circ-stop:hover{background:var(--gold-p)}
+.csnum{width:28px;height:28px;border-radius:50%;background:var(--gold);color:var(--ink);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px}
+.csico{width:42px;height:42px;border-radius:9px;overflow:hidden;flex-shrink:0}
+.csico img{width:100%;height:100%;object-fit:cover}
+.csico-e{width:42px;height:42px;border-radius:9px;background:var(--cream-d);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.csinfo h4{font-size:13.5px;font-weight:600;color:var(--ink);margin-bottom:3px}
+.csinfo p{font-size:12px;color:var(--ink-l);line-height:1.55}
+.cstip{display:inline-flex;align-items:center;gap:4px;font-size:11px;background:rgba(201,151,58,.1);color:var(--gold-d);padding:2px 8px;border-radius:10px;margin-top:5px;font-weight:500}
+.circ-cta{padding:16px 24px;background:var(--cream);border-top:1px solid var(--cream-d);display:flex;gap:10px}
+.circ-btn-p{flex:1;padding:11px;border-radius:10px;border:none;background:var(--gold);color:var(--ink);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.circ-btn-p:hover{background:var(--gold-l);transform:translateY(-1px)}
+.circ-btn-s{padding:11px 16px;border-radius:10px;border:1.5px solid var(--cream-dd);background:white;color:var(--ink-m);font-family:'DM Sans',sans-serif;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .2s}
+.circ-btn-s:hover{border-color:var(--gold);color:var(--gold-d)}
+
+/* ══ INFOS PRATIQUES ══ */
+.info-hero{background:var(--ink-m);padding:64px 40px;text-align:center;background-image:radial-gradient(ellipse at 80% 0%,rgba(42,107,107,.2) 0%,transparent 50%)}
+.info-hero h2{font-family:'Cormorant Garamond',serif;font-size:42px;color:var(--cream);margin-bottom:10px}
+.info-hero p{font-size:14px;color:rgba(250,246,238,.5);max-width:480px;margin:0 auto}
+.info-body{max-width:1100px;margin:0 auto;padding:52px 40px}
+.saison-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:44px}
+.saison-card{border-radius:10px;padding:16px 13px;text-align:center;border:1.5px solid var(--cream-d);background:white}
+.saison-card.best{border-color:var(--gold);background:var(--gold-p)}
+.saison-card h4{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:5px}
+.saison-card p{font-size:11.5px;color:var(--ink-l);line-height:1.5}
+.saison-stars{font-size:15px;margin-bottom:6px}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.info-card{background:white;border-radius:var(--r);border:1px solid var(--cream-d);overflow:hidden;box-shadow:var(--sh)}
+.info-card-hdr{padding:14px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--cream-d);background:var(--cream)}
+.info-card-ico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.info-card-hdr h3{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;color:var(--ink)}
+.info-card-body{padding:14px 18px}
+.info-row{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--cream-d);align-items:flex-start}
+.info-row:last-child{border-bottom:none}
+.info-row-ico{font-size:15px;flex-shrink:0;margin-top:1px}
+.info-row-txt strong{display:block;font-size:12.5px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.info-row-txt span{font-size:12px;color:var(--ink-l);line-height:1.55}
+.transport-table{width:100%;border-collapse:collapse;font-size:12px}
+.transport-table th{background:var(--ink);color:var(--gold-l);padding:8px 10px;text-align:left;font-weight:600;font-size:10.5px;letter-spacing:.04em}
+.transport-table td{padding:8px 10px;border-bottom:1px solid var(--cream-d);color:var(--ink-m)}
+.transport-table tr:last-child td{border-bottom:none}
+.transport-table tr:hover td{background:var(--gold-p)}
+
+/* ══ GALERIE ══ */
+.gal-overlay{display:none;position:fixed;inset:0;background:rgba(8,5,2,.95);z-index:9000;flex-direction:column}
+.gal-overlay.open{display:flex}
+.gal-topbar{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid rgba(255,255,255,.07);flex-shrink:0}
+.gal-title{font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--cream);font-weight:600}
+.gal-counter{font-size:11.5px;color:rgba(250,246,238,.45)}
+.gal-close{width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.1);border:none;color:var(--cream);cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center}
+.gal-close:hover{background:rgba(255,255,255,.2)}
+.gal-main{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;position:relative;overflow:hidden}
+.gal-img-wrap{max-width:900px;width:100%;display:flex;align-items:center;justify-content:center}
+.gal-img-wrap img{max-width:100%;max-height:calc(100vh - 190px);border-radius:10px;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.gal-nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:var(--cream);cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;transition:all .18s;z-index:5}
+.gal-nav:hover{background:rgba(201,151,58,.4)}.gal-prev{left:12px}.gal-next{right:12px}
+.gal-caption{padding:10px 20px;text-align:center;flex-shrink:0;border-top:1px solid rgba(255,255,255,.06)}
+.gal-caption h4{font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--cream);margin-bottom:2px}
+.gal-caption p{font-size:11px;color:rgba(250,246,238,.4)}
+.gal-thumbs{display:flex;gap:6px;padding:10px 20px;overflow-x:auto;flex-shrink:0;border-top:1px solid rgba(255,255,255,.05)}
+.gal-thumb{width:54px;height:54px;border-radius:7px;overflow:hidden;cursor:pointer;flex-shrink:0;opacity:.5;border:2px solid transparent;transition:all .18s}
+.gal-thumb.act{opacity:1;border-color:var(--gold)}.gal-thumb:hover{opacity:.8}
+.gal-thumb img{width:100%;height:100%;object-fit:cover}
+
+/* ══ FEATURES PAGE ══ */
+.fhero{background:var(--ink);padding:64px 40px;text-align:center;background-image:repeating-linear-gradient(45deg,transparent,transparent 20px,rgba(201,151,58,.025) 20px,rgba(201,151,58,.025) 21px)}
+.fhero h2{font-family:'Cormorant Garamond',serif;font-size:40px;color:var(--cream);margin-bottom:10px}
+.fhero p{font-size:14px;color:rgba(250,246,238,.5);max-width:480px;margin:0 auto}
+.feabody{max-width:1100px;margin:0 auto;padding:56px 40px}
+.fea-row{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center;margin-bottom:64px}
+.fea-row.rv{direction:rtl}.fea-row.rv>*{direction:ltr}
+.fea-vis{border-radius:var(--r);background:white;border:1px solid var(--cream-d);box-shadow:var(--sh);min-height:240px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;font-size:58px;padding:26px;text-align:center}
+.fea-tag{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:600;background:rgba(201,151,58,.1);color:var(--gold);margin-bottom:14px}
+.fea-txt h3{font-family:'Cormorant Garamond',serif;font-size:27px;font-weight:600;color:var(--ink);margin-bottom:12px;line-height:1.18}
+.fea-txt p{font-size:13.5px;color:var(--ink-l);line-height:1.78;margin-bottom:14px}
+.flist{list-style:none}
+.flist li{font-size:12.5px;color:var(--ink-m);padding:5px 0;display:flex;gap:9px;align-items:flex-start;border-bottom:1px solid var(--cream-d)}
+.flist li:last-child{border-bottom:none}
+.flist li::before{content:'✦';color:var(--gold);font-size:9px;flex-shrink:0;margin-top:4px}
+
+/* ══ QR ══ */
+.qrsec{background:white;border-top:1px solid var(--cream-d);padding:64px 40px}
+.qrinner{max-width:860px;margin:0 auto;display:grid;grid-template-columns:1fr 1.1fr;gap:52px;align-items:start}
+.qrpanel{text-align:center}
+.qrbox{background:white;border:2px solid var(--cream-d);border-radius:var(--r);padding:22px;display:inline-block;margin:18px 0;box-shadow:var(--sh)}
+#qrcode{display:flex;align-items:center;justify-content:center;min-width:180px;min-height:180px}
+#qrcode canvas,#qrcode img{border-radius:4px}
+.qr-ctrl{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.qrinp{width:100%;padding:10px 13px;border:1.5px solid var(--cream-d);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);background:var(--cream);outline:none;transition:border-color .2s}
+.qrinp:focus{border-color:var(--gold)}
+.qrsel{width:100%;padding:9px 13px;border:1.5px solid var(--cream-d);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);background:var(--cream);outline:none;cursor:pointer}
+.qrdl{width:100%;padding:11px;border-radius:8px;border:none;background:var(--ink);color:var(--gold-l);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px}
+.qrdl:hover{background:var(--ink-m)}
+.sqgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;max-height:260px;overflow-y:auto;padding-right:3px;margin-top:10px}
+.sqbtn{padding:7px 9px;border-radius:8px;border:1.5px solid var(--cream-d);background:white;font-size:11px;color:var(--ink-m);cursor:pointer;text-align:left;transition:all .15s;font-family:'DM Sans',sans-serif;line-height:1.35}
+.sqbtn:hover,.sqbtn.sel{border-color:var(--gold);background:var(--gold-p);color:var(--ink)}
+
+/* ══ BLOG ══ */
+.bhero{background:var(--ink-m);padding:64px 40px;background-image:radial-gradient(ellipse at 0% 100%,rgba(201,151,58,.14) 0%,transparent 55%)}
+.bhero h2{font-family:'Cormorant Garamond',serif;font-size:40px;color:var(--cream);margin-bottom:9px}
+.bhero p{font-size:13.5px;color:rgba(250,246,238,.5)}
+.bbody{max-width:1100px;margin:0 auto;padding:44px 40px}
+.btags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:26px}
+.btag{padding:5px 14px;border-radius:20px;font-size:11.5px;border:1.5px solid var(--cream-d);background:white;color:var(--ink-m);cursor:pointer;transition:all .15s;font-weight:500;font-family:'DM Sans',sans-serif}
+.btag:hover,.btag.sel{background:var(--ink);color:var(--gold-l);border-color:var(--ink)}
+.bfeat{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-bottom:38px}
+.bgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.bcard{background:white;border-radius:var(--r);overflow:hidden;border:1px solid var(--cream-d);cursor:pointer;transition:all .22s}
+.bcard:hover{transform:translateY(-3px);box-shadow:var(--sh-lg)}
+.bcimg{height:200px;display:flex;align-items:center;justify-content:center;font-size:68px;background:linear-gradient(135deg,var(--ink),var(--ink-m));position:relative}
+.bcimg-sm{height:134px;font-size:50px}
+.bccat{position:absolute;top:10px;left:10px;background:var(--gold);color:var(--ink);padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700}
+.bcbody{padding:14px}
+.bcdate{font-size:11px;color:var(--ink-l);margin-bottom:5px}
+.bctitle{font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:600;color:var(--ink);margin-bottom:7px;line-height:1.22}
+.bctitle-sm{font-size:14.5px}
+.bcex{font-size:12px;color:var(--ink-l);line-height:1.62;margin-bottom:9px}
+.bcauth{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-l)}
+.bcav{width:24px;height:24px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;color:var(--ink);font-weight:700}
+
+/* ══ CONTACT ══ */
+.chero{background:var(--cream-d);padding:64px 40px;text-align:center}
+.chero h2{font-family:'Cormorant Garamond',serif;font-size:40px;color:var(--ink);margin-bottom:9px}
+.chero p{font-size:14px;color:var(--ink-l)}
+.cbody{max-width:980px;margin:0 auto;padding:52px 40px;display:grid;grid-template-columns:1fr 1.35fr;gap:52px;align-items:start}
+.cinfo h3{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600;color:var(--ink);margin-bottom:16px}
+.citm{display:flex;gap:13px;align-items:flex-start;margin-bottom:16px}
+.cico{width:40px;height:40px;border-radius:10px;background:var(--gold-p);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;border:1px solid var(--cream-dd)}
+.ctxt strong{display:block;font-size:13px;font-weight:600;color:var(--ink);margin-bottom:2px}
+.ctxt span{font-size:13px;color:var(--ink-l)}
+.socrow{display:flex;gap:8px;margin-top:22px}
+.socbtn{width:38px;height:38px;border-radius:10px;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:17px;cursor:pointer;transition:background .18s;border:none}
+.socbtn:hover{background:var(--ink-m)}
+.cform{background:white;border-radius:var(--r);padding:26px;border:1px solid var(--cream-d);box-shadow:var(--sh)}
+.cform h3{font-family:'Cormorant Garamond',serif;font-size:20px;margin-bottom:16px;color:var(--ink)}
+.frow2{margin-bottom:13px}
+.flbl{display:block;font-size:10.5px;font-weight:700;color:var(--ink-m);margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em}
+.finp{width:100%;padding:10px 13px;border:1.5px solid var(--cream-d);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--ink);background:var(--cream);outline:none;transition:border-color .2s}
+.finp:focus{border-color:var(--gold)}
+textarea.finp{resize:vertical;min-height:90px}
+.fgrid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.bsend{width:100%;padding:12px;border-radius:10px;border:none;background:var(--ink);color:var(--gold-l);font-family:'DM Sans',sans-serif;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:7px}
+.bsend:hover{background:var(--ink-m);transform:translateY(-1px)}
+.fsuccess{display:none;text-align:center;padding:14px;background:rgba(42,107,107,.08);border-radius:10px;border:1px solid rgba(42,107,107,.22);margin-top:10px}
+.fsuccess p{color:var(--teal);font-size:13px;font-weight:500}
+
+/* ══ RESPONSIVE ══ */
+@media(max-width:1000px){.fgrid,.feagrid{grid-template-columns:1fr 1fr}.bfeat,.fea-row{grid-template-columns:1fr}.fea-row.rv{direction:ltr}.bgrid{grid-template-columns:1fr 1fr}.cbody{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr}.saison-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.nlinks,.ncta{display:none}.hbg{display:flex}.hcnt h2{font-size:36px}.hcnt{padding:0 20px}.hstat{padding:10px 18px;border-right:none;border-bottom:1px solid rgba(201,151,58,.12);width:50%}.hsec{padding:40px 20px}.fgrid,.feagrid,.bgrid{grid-template-columns:1fr}:root{--sw:100vw}.dp{width:100%;left:0;border-left:none}.ft{padding:20px}.qrinner{grid-template-columns:1fr}.fgrid2{grid-template-columns:1fr}.gal-nav{width:36px;height:36px;font-size:18px}.circ-banner{height:160px}.circ-tabs{gap:6px}.ctab{padding:7px 12px;font-size:11.5px}.lang-sw{display:none}}
+</style>
+</head>
+<body>
+
+<!-- ══ NAV ══ -->
+<nav>
+  <div class="nb" onclick="goPg('home')">
+    <div class="nl">🏛</div>
+    <div class="nt"><h1 data-i18n="nav_title">Patrimoine Alger</h1><p>تراث الجزائر العاصمة</p></div>
+  </div>
+  <div class="nlinks">
+    <button class="nlink act" onclick="goPg('home')" data-i18n="nav_home">🏠 Accueil</button>
+    <button class="nlink" onclick="goPg('map')" data-i18n="nav_map">🗺 Carte</button>
+    <button class="nlink" onclick="goPg('circuits')" data-i18n="nav_circuits">🚶 Circuits</button>
+    <button class="nlink" onclick="goPg('infos')" data-i18n="nav_infos">🚌 Infos pratiques</button>
+    <button class="nlink" onclick="goPg('blog')" data-i18n="nav_blog">📰 Blog</button>
+    <button class="nlink" onclick="goPg('contact')" data-i18n="nav_contact">✉ Contact</button>
+    <button class="ncta" onclick="goPg('map')" data-i18n="nav_cta">Explorer →</button>
+    <div class="lang-sw">
+      <button class="lang-btn act" onclick="setLang('fr')">FR</button>
+      <button class="lang-btn" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" onclick="setLang('ar')">AR</button>
+    </div>
+  </div>
+  <button class="hbg" onclick="toggleMob()"><span></span><span></span><span></span></button>
+</nav>
+<div class="mob-menu" id="mob-menu">
+  <button class="nlink" onclick="goPg('home');toggleMob()" data-i18n="nav_home">🏠 Accueil</button>
+  <button class="nlink" onclick="goPg('map');toggleMob()" data-i18n="nav_map">🗺 Carte</button>
+  <button class="nlink" onclick="goPg('circuits');toggleMob()" data-i18n="nav_circuits">🚶 Circuits guidés</button>
+  <button class="nlink" onclick="goPg('infos');toggleMob()" data-i18n="nav_infos">🚌 Infos pratiques</button>
+  <button class="nlink" onclick="goPg('blog');toggleMob()" data-i18n="nav_blog">📰 Blog</button>
+  <button class="nlink" onclick="goPg('contact');toggleMob()" data-i18n="nav_contact">✉ Contact</button>
+  <div style="display:flex;gap:6px;padding:8px 12px">
+    <button class="lang-btn act" style="background:var(--gold);color:var(--ink);border-radius:8px;padding:6px 12px;border:none;font-weight:700;cursor:pointer" onclick="setLang('fr')">FR</button>
+    <button class="lang-btn" style="background:rgba(255,255,255,.1);color:var(--gold-l);border-radius:8px;padding:6px 12px;border:none;font-weight:700;cursor:pointer" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" style="background:rgba(255,255,255,.1);color:var(--gold-l);border-radius:8px;padding:6px 12px;border:none;font-weight:700;cursor:pointer;font-family:'Amiri',serif" onclick="setLang('ar')">AR</button>
+  </div>
+</div>
+
+<!-- ══════════════ HOME ══════════════ -->
+<div class="pg act" id="pg-home">
+
+  <!-- HERO ANIMATED -->
+  <div class="hero">
+    <div class="hero-slides" id="hero-slides">
+      <div class="hero-slide act" style="background-image:url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Algiers_Casbah_general_view.jpg/1200px-Algiers_Casbah_general_view.jpg')"></div>
+      <div class="hero-slide" style="background-image:url('https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Notre_Dame_d%27Afrique_Algiers.jpg/1200px-Notre_Dame_d%27Afrique_Algiers.jpg')"></div>
+      <div class="hero-slide" style="background-image:url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Jardin_d%27Essai_du_Hamma_Alger.jpg/1200px-Jardin_d%27Essai_du_Hamma_Alger.jpg')"></div>
+      <div class="hero-slide" style="background-image:url('https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Grande_Poste_d%27Alger.jpg/1200px-Grande_Poste_d%27Alger.jpg')"></div>
+      <div class="hero-slide" style="background-image:url('https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Ketchaoua_Mosque_Algiers.jpg/1200px-Ketchaoua_Mosque_Algiers.jpg')"></div>
+    </div>
+    <div class="hero-pat"></div>
+    <div class="hcnt">
+      <div class="hbadge">🌍 <span data-i18n="badge">Wilaya d'Alger · Patrimoine culturel protégé</span></div>
+      <h2><span data-i18n="hero_title">Carte du</span> <em data-i18n="hero_em">Patrimoine</em></h2>
+      <div class="har">خريطة التراث الثقافي للجزائر العاصمة</div>
+      <p class="hdesc" data-i18n="hero_desc">Explorez les 67 sites patrimoniaux classés et inscrits de la wilaya d'Alger — mosquées, forteresses ottomanes, palais, sites archéologiques et jardins historiques.</p>
+      <div class="hbtns">
+        <button class="btn-p" onclick="goPg('map')" data-i18n="hero_btn1">🗺 Ouvrir la carte interactive</button>
+        <button class="btn-s" onclick="goPg('circuits')" data-i18n="hero_btn2">🚶 Voir les circuits</button>
+      </div>
+      <div class="hstats">
+        <div class="hstat"><strong>67</strong><span data-i18n="stat1">Sites recensés</span></div>
+        <div class="hstat"><strong>52</strong><span data-i18n="stat2">Monuments classés</span></div>
+        <div class="hstat"><strong>15</strong><span data-i18n="stat3">Sites inscrits</span></div>
+        <div class="hstat"><strong>5</strong><span data-i18n="stat4">Circuits guidés</span></div>
+        <div class="hstat"><strong>3</strong><span data-i18n="stat5">Langues</span></div>
+      </div>
+    </div>
+    <div class="hero-dots" id="hero-dots"></div>
+    <div class="hero-scroll"><div class="scroll-line"></div><span data-i18n="scroll">Défiler</span></div>
+  </div>
+
+  <!-- SITES PHARES -->
+  <div class="hsec">
+    <div class="slbl" data-i18n="sec_lbl1">Sites phares</div>
+    <div class="stitle" data-i18n="sec_title1">Monuments emblématiques d'Alger</div>
+    <p class="sdesc" data-i18n="sec_desc1">Parmi les 67 sites patrimoniaux recensés, quelques joyaux qui illustrent la richesse et la diversité du patrimoine algérois.</p>
+    <div class="fgrid">
+      <div class="fcard" onclick="goSite(1)"><div class="fimg-photo"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Algiers_Casbah_general_view.jpg/640px-Algiers_Casbah_general_view.jpg" loading="lazy" onerror="this.parentNode.innerHTML='🕌'"><span class="fphoto-credit">© Wikimedia CC</span></div><div class="fbody"><div class="ftype">UNESCO · Monument historique</div><div class="fname" data-i18n="site_casbah">La Casbah d'Alger</div><div class="fdesc" data-i18n="site_casbah_d">Inscrite au patrimoine mondial UNESCO en 1992, joyau de l'architecture islamique méditerranéenne.</div><span class="bdg bdc" data-i18n="lbl_classe">Classé</span></div></div>
+      <div class="fcard" onclick="goSite(39)"><div class="fimg-photo"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Djamaael-kebir.jpg/640px-Djamaael-kebir.jpg" loading="lazy" onerror="this.parentNode.innerHTML='🕌'"><span class="fphoto-credit">© Wikimedia CC</span></div><div class="fbody"><div class="ftype">Mosquée · XIe siècle</div><div class="fname" data-i18n="site_gm">Grande Mosquée (Djamaâ El Kébir)</div><div class="fdesc" data-i18n="site_gm_d">La plus ancienne mosquée d'Alger, construite sous les Zirides au XIe siècle.</div><span class="bdg bdc" data-i18n="lbl_classe">Classé</span></div></div>
+      <div class="fcard" onclick="goSite(6)"><div class="fimg-photo"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Jardin_d%27Essai_du_Hamma_Alger.jpg/640px-Jardin_d%27Essai_du_Hamma_Alger.jpg" loading="lazy" onerror="this.parentNode.innerHTML='🌿'"><span class="fphoto-credit">© Wikimedia CC</span></div><div class="fbody"><div class="ftype">Site naturel · 1832</div><div class="fname" data-i18n="site_hamma">Jardin d'Essai du Hamma</div><div class="fdesc" data-i18n="site_hamma_d">L'un des plus beaux jardins botaniques d'Afrique du Nord, son allée de palmiers royaux est classée.</div><span class="bdg bdc" data-i18n="lbl_classe">Classé</span></div></div>
+      <div class="fcard" onclick="goSite(29)"><div class="fimg-photo"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Notre_Dame_d%27Afrique_Algiers.jpg/640px-Notre_Dame_d%27Afrique_Algiers.jpg" loading="lazy" onerror="this.parentNode.innerHTML='⛪'"><span class="fphoto-credit">© Wikimedia CC</span></div><div class="fbody"><div class="ftype">Édifice religieux · 1872</div><div class="fname" data-i18n="site_nda">Basilique Notre-Dame d'Afrique</div><div class="fdesc" data-i18n="site_nda_d">Chef-d'œuvre néo-byzantin dominant la baie d'Alger, symbole du dialogue interreligieux.</div><span class="bdg bdc" data-i18n="lbl_classe">Classé</span></div></div>
+      <div class="fcard" onclick="goSite(45)"><div class="fimg-photo"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Grande_Poste_d%27Alger.jpg/640px-Grande_Poste_d%27Alger.jpg" loading="lazy" onerror="this.parentNode.innerHTML='🏛'"><span class="fphoto-credit">© Wikimedia CC</span></div><div class="fbody"><div class="ftype">Architecture néo-mauresque · 1910</div><div class="fname" data-i18n="site_gp">La Grande Poste d'Alger</div><div class="fdesc" data-i18n="site_gp_d">Chef-d'œuvre de Jules Voinot mêlant style hispano-mauresque et modernité.</div><span class="bdg bdc" data-i18n="lbl_classe">Classé</span></div></div>
+      <div class="fcard" onclick="goSite(14)"><div class="fimg-photo"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Ketchaoua_Mosque_Algiers.jpg/640px-Ketchaoua_Mosque_Algiers.jpg" loading="lazy" onerror="this.parentNode.innerHTML='🕌'"><span class="fphoto-credit">© Wikimedia CC</span></div><div class="fbody"><div class="ftype">Mosquée · XVIIe siècle</div><div class="fname" data-i18n="site_ketch">Mosquée Ketchaoua</div><div class="fdesc" data-i18n="site_ketch_d">Joyau de la Casbah mêlant art ottoman et influences andalouses, restaurée en 2018.</div><span class="bdg bdc" data-i18n="lbl_classe">Classé</span></div></div>
+    </div>
+  </div>
+
+  <!-- FEATURES OVERVIEW -->
+  <div style="background:white;padding:60px 0;border-top:1px solid var(--cream-d)">
+    <div class="hsec" style="padding-top:0;padding-bottom:0">
+      <div class="slbl" data-i18n="sec_lbl2">Application</div>
+      <div class="stitle" data-i18n="sec_title2">Tout pour explorer le patrimoine</div>
+      <div class="feagrid">
+        <div class="feacard"><div class="feaico" style="background:#FFF3D6;color:var(--gold)">🗺</div><div class="featitle" data-i18n="f1t">Carte interactive</div><div class="feadesc" data-i18n="f1d">Visualisez les 67 sites sur OpenStreetMap. Pins colorés par statut, filtres en temps réel.</div></div>
+        <div class="feacard"><div class="feaico" style="background:#D6EEF0;color:var(--teal)">🚶</div><div class="featitle" data-i18n="f2t">5 Circuits guidés</div><div class="feadesc" data-i18n="f2d">Ottoman, Colonial, Nature, Romain, Mémoire — itinéraires complets avec durées et conseils.</div></div>
+        <div class="feacard"><div class="feaico" style="background:#F5EDD5;color:#8A5A00">🚌</div><div class="featitle" data-i18n="f3t">Infos pratiques</div><div class="feadesc" data-i18n="f3d">Horaires, tarifs, transports, meilleures saisons, contacts utiles pour préparer votre visite.</div></div>
+        <div class="feacard"><div class="feaico" style="background:#F0F5FF;color:#2A2A8A">📸</div><div class="featitle" data-i18n="f4t">Galerie photos</div><div class="feadesc" data-i18n="f4d">Galerie immersive plein écran pour chaque site, avec navigation clavier et miniatures.</div></div>
+        <div class="feacard"><div class="feaico" style="background:#F0FFF0;color:#2A6B2A">🌐</div><div class="featitle" data-i18n="f5t">Trilingue FR / AR / EN</div><div class="feadesc" data-i18n="f5d">Interface complète en français, anglais et arabe pour accueillir tous les visiteurs.</div></div>
+        <div class="feacard"><div class="feaico" style="background:#FFF8E8;color:#8A5A00">📱</div><div class="featitle" data-i18n="f6t">Générateur QR Code</div><div class="feadesc" data-i18n="f6d">QR Code téléchargeable pour chaque site — idéal pour panneaux et publications.</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><p><strong>🏛 <span data-i18n="footer_title">Carte du Patrimoine — Wilaya d'Alger</span></strong></p><p style="margin-top:6px" data-i18n="footer_sub">Données : Ministère de la Culture et des Arts · Carte © OpenStreetMap · CARTO</p><p style="margin-top:4px;font-size:11px">67 sites patrimoniaux · 2025</p></div>
+</div>
+
+<!-- ══════════════ MAP ══════════════ -->
+<div class="pg" id="pg-map">
+  <div class="sb">
+    <div class="sa">
+      <div class="swrap"><span class="sico">🔍</span><input type="text" class="si" id="sinput" data-i18n-ph="search_ph" placeholder="Rechercher un site…"></div>
+      <div class="frow-chips" id="fchips">
+        <button class="fchip act" data-f="all" data-i18n="chip_all">Tous</button>
+        <button class="fchip" data-f="Classé" data-i18n="chip_classe">Classés</button>
+        <button class="fchip" data-f="Inscrit" data-i18n="chip_inscrit">Inscrits</button>
+        <button class="fchip" data-f="fav">⭐ <span data-i18n="chip_fav">Favoris</span></button>
+        <button class="fchip" data-f="adv" data-i18n="chip_adv">Filtres ▾</button>
+      </div>
+    </div>
+    <div class="advp" id="advp">
+      <div><div class="advlbl" data-i18n="adv_type">Type de bien</div><div class="advtags" id="tf"></div></div>
+      <div><div class="advlbl" data-i18n="adv_period">Période</div><div class="advtags" id="pf"></div></div>
+    </div>
+    <div class="rhdr"><span id="rlbl">67 sites</span><span id="vbdg" style="font-size:10.5px;color:var(--gold);font-weight:600">67 visibles</span></div>
+    <div class="slist" id="slist"></div>
+  </div>
+  <div id="map"></div>
+  <div class="dp" id="dp">
+    <div class="dh">
+      <div class="dhpat"></div>
+      <div class="demoji" id="demoji">🏛</div>
+      <button class="dclose" onclick="closeD()">✕</button>
+      <div class="dhbot"><h2 id="dname"></h2></div>
+    </div>
+    <div class="dbody">
+      <div class="dphoto-wrap" id="dphoto-wrap"></div>
+      <div class="dbadges" id="dbadges"></div>
+      <p class="ddesc" id="ddesc"></p>
+      <div class="dgrid" id="dgrid"></div>
+      <div class="dcoords" id="dcoords"></div>
+      <button class="dbtn dbtn-fav" id="btnfav" onclick="togFav()">☆ <span data-i18n="btn_fav">Ajouter aux favoris</span></button>
+      <button class="dbtn dbtn-loc" onclick="locSite()">📍 <span data-i18n="btn_center">Centrer sur la carte</span></button>
+      <button class="dbtn dbtn-gal" onclick="openGalerie(cur)">📸 <span data-i18n="btn_gallery">Galerie photos</span></button>
+      <button class="dbtn" onclick="togDQR()">📱 <span data-i18n="btn_qr">Générer QR Code</span></button>
+      <div class="dqrwrap" id="dqrwrap"><div id="dqrc"></div><p data-i18n="qr_label">QR vers la fiche du site</p><button class="dbtn dbtn-loc" style="margin-top:6px" onclick="dlDQR()">⬇ <span data-i18n="btn_dl">Télécharger PNG</span></button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ CIRCUITS ══════════════ -->
+<div class="pg" id="pg-circuits">
+  <div class="circ-hero">
+    <div class="slbl" data-i18n="circ_lbl">Tourisme & Découverte</div>
+    <h2 data-i18n="circ_title">Circuits Guidés</h2>
+    <p data-i18n="circ_desc">5 itinéraires thématiques pour explorer le patrimoine d'Alger à votre rythme</p>
+  </div>
+  <div class="circ-body">
+    <div class="circ-tabs">
+      <button class="ctab act" onclick="showCirc(this,'ottoman')">🕌 <span data-i18n="c1">Alger Ottoman</span></button>
+      <button class="ctab" onclick="showCirc(this,'colonial')">🏛 <span data-i18n="c2">Architecture Coloniale</span></button>
+      <button class="ctab" onclick="showCirc(this,'nature')">🌿 <span data-i18n="c3">Jardins & Nature</span></button>
+      <button class="ctab" onclick="showCirc(this,'romain')">🏺 <span data-i18n="c4">Héritage Romain</span></button>
+      <button class="ctab" onclick="showCirc(this,'memoire')">🕯 <span data-i18n="c5">Lieux de Mémoire</span></button>
+    </div>
+    <!-- Ottoman -->
+    <div class="circ-card act" id="circ-ottoman">
+      <div class="circ-banner"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Algiers_Casbah_general_view.jpg/1000px-Algiers_Casbah_general_view.jpg" loading="lazy" onerror="this.style.display='none'"><div class="circ-banner-txt"><h3>🕌 Alger Ottoman</h3><p data-i18n="c1_sub">Au cœur de la Casbah, sur les traces de la régence ottomane (XVIe–XIXe s.)</p></div></div>
+      <div class="circ-meta">
+        <div class="circ-meta-item">⏱ <span data-i18n="duration">Durée</span> : <strong data-i18n="c1_dur">Demi-journée (3–4h)</strong></div>
+        <div class="circ-meta-item">📍 <span data-i18n="start">Départ</span> : <strong data-i18n="c1_start">Place des Martyrs</strong></div>
+        <div class="circ-meta-item">🚶 <strong>~2,5 km</strong></div>
+        <div class="circ-meta-item">🌡 <span data-i18n="ideal">Idéal</span> : <strong data-i18n="c1_season">Printemps / Automne</strong></div>
+      </div>
+      <div class="circ-stops">
+        <div class="circ-stop" onclick="goSite(39)"><div class="csnum">1</div><div class="csico"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Djamaael-kebir.jpg/120px-Djamaael-kebir.jpg" loading="lazy" onerror="this.parentNode.className='csico-e';this.parentNode.innerHTML='🕌'"></div><div class="csinfo"><h4>Grande Mosquée (Djamaâ El Kébir)</h4><p data-i18n="s1_1">La plus ancienne mosquée d'Alger (1097). Commencez tôt pour éviter la foule.</p><span class="cstip">⏱ 30 min · <span data-i18n="s_dress">Tenue correcte</span></span></div></div>
+        <div class="circ-stop" onclick="goSite(22)"><div class="csnum">2</div><div class="csico-e">🕌</div><div class="csinfo"><h4>Mosquée Djamaâ El-Djedid</h4><p data-i18n="s1_2">Architecture baroque ottomane unique au plan en croix grecque (1660).</p><span class="cstip">⏱ 20 min</span></div></div>
+        <div class="circ-stop" onclick="goSite(14)"><div class="csnum">3</div><div class="csico"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Ketchaoua_Mosque_Algiers.jpg/120px-Ketchaoua_Mosque_Algiers.jpg" loading="lazy" onerror="this.parentNode.className='csico-e';this.parentNode.innerHTML='🕌'"></div><div class="csinfo"><h4>Mosquée Ketchaoua</h4><p data-i18n="s1_3">Joyau mêlant styles ottoman et byzantin, restaurée par la TIKA turque en 2018.</p><span class="cstip">⏱ 30 min · <span data-i18n="s_photos">Photos autorisées</span></span></div></div>
+        <div class="circ-stop" onclick="goSite(32)"><div class="csnum">4</div><div class="csico-e">🏯</div><div class="csinfo"><h4>Dar Hassen Pacha</h4><p data-i18n="s1_4">L'un des plus beaux palais ottomans de la Casbah — cours, fontaines de marbre, faïences.</p><span class="cstip">⏱ 45 min · <span data-i18n="s_museum">Musée intégré</span></span></div></div>
+        <div class="circ-stop" onclick="goSite(1)"><div class="csnum">5</div><div class="csico"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Algiers_Casbah_general_view.jpg/120px-Algiers_Casbah_general_view.jpg" loading="lazy" onerror="this.parentNode.className='csico-e';this.parentNode.innerHTML='🏘'"></div><div class="csinfo"><h4 data-i18n="s1_5t">Promenade libre dans la Casbah</h4><p data-i18n="s1_5">Ruelles de la haute Casbah, maisons à patio et vues panoramiques sur la baie.</p><span class="cstip">⏱ 1h · <span data-i18n="s_shoes">Chaussures confortables</span></span></div></div>
+      </div>
+      <div class="circ-cta"><button class="circ-btn-p" onclick="goPg('map')">🗺 <span data-i18n="see_map">Voir sur la carte</span></button><button class="circ-btn-s" onclick="saveCircuit('ottoman')">⭐ <span data-i18n="save_circ">Sauvegarder</span></button></div>
+    </div>
+    <!-- Colonial -->
+    <div class="circ-card" id="circ-colonial">
+      <div class="circ-banner"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Grande_Poste_d%27Alger.jpg/1000px-Grande_Poste_d%27Alger.jpg" loading="lazy" onerror="this.style.display='none'"><div class="circ-banner-txt"><h3>🏛 Architecture Coloniale</h3><p>Centre-ville d'Alger, chefs-d'œuvre néo-mauresque (XIXe–XXe s.)</p></div></div>
+      <div class="circ-meta"><div class="circ-meta-item">⏱ <strong>2–3h</strong></div><div class="circ-meta-item">📍 <strong>Grande Poste</strong></div><div class="circ-meta-item">🚶 <strong>~1,8 km</strong></div><div class="circ-meta-item">🌡 <strong>Toute l'année</strong></div></div>
+      <div class="circ-stops">
+        <div class="circ-stop" onclick="goSite(45)"><div class="csnum">1</div><div class="csico"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Grande_Poste_d%27Alger.jpg/120px-Grande_Poste_d%27Alger.jpg" loading="lazy" onerror="this.parentNode.className='csico-e';this.parentNode.innerHTML='🏛'"></div><div class="csinfo"><h4>La Grande Poste</h4><p>Chef-d'œuvre néo-mauresque de Jules Voinot (1910). Façade en mosaïque et dôme central.</p><span class="cstip">⏱ 20 min · Entrée libre</span></div></div>
+        <div class="circ-stop" onclick="goSite(46)"><div class="csnum">2</div><div class="csico-e">🎭</div><div class="csinfo"><h4>Théâtre National Algérien</h4><p>Édifice de 1853, institution théâtrale principale d'Algérie. Architecture néo-mauresque.</p><span class="cstip">⏱ 15 min</span></div></div>
+        <div class="circ-stop" onclick="goSite(44)"><div class="csnum">3</div><div class="csico"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Universit%C3%A9_d%27Alger.jpg/120px-Universit%C3%A9_d%27Alger.jpg" loading="lazy" onerror="this.parentNode.className='csico-e';this.parentNode.innerHTML='🎓'"></div><div class="csinfo"><h4>Université d'Alger 1</h4><p>Bâtiment de 1909 alliant formes classiques françaises et décors orientaux.</p><span class="cstip">⏱ 20 min</span></div></div>
+        <div class="circ-stop" onclick="goSite(29)"><div class="csnum">4</div><div class="csico"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Notre_Dame_d%27Afrique_Algiers.jpg/120px-Notre_Dame_d%27Afrique_Algiers.jpg" loading="lazy" onerror="this.parentNode.className='csico-e';this.parentNode.innerHTML='⛪'"></div><div class="csinfo"><h4>Basilique Notre-Dame d'Afrique</h4><p>Chef-d'œuvre néo-byzantin dominant la baie. Vue panoramique imprenable.</p><span class="cstip">⏱ 30 min · Vue mer</span></div></div>
+      </div>
+      <div class="circ-cta"><button class="circ-btn-p" onclick="goPg('map')">🗺 Voir sur la carte</button><button class="circ-btn-s" onclick="saveCircuit('colonial')">⭐ Sauvegarder</button></div>
+    </div>
+    <!-- Nature -->
+    <div class="circ-card" id="circ-nature">
+      <div class="circ-banner" style="background:linear-gradient(135deg,#1A2A1A,#2A5A2A)"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Jardin_d%27Essai_du_Hamma_Alger.jpg/1000px-Jardin_d%27Essai_du_Hamma_Alger.jpg" loading="lazy" onerror="this.style.display='none'"><div class="circ-banner-txt"><h3>🌿 Jardins & Nature</h3><p>Les espaces verts classés d'Alger</p></div></div>
+      <div class="circ-meta"><div class="circ-meta-item">⏱ <strong>Journée entière</strong></div><div class="circ-meta-item">📍 <strong>Jardin d'Essai</strong></div><div class="circ-meta-item">🚗 <strong>Voiture recommandée</strong></div><div class="circ-meta-item">🌡 <strong>Mars–Mai</strong></div></div>
+      <div class="circ-stops">
+        <div class="circ-stop" onclick="goSite(6)"><div class="csnum">1</div><div class="csico"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Jardin_d%27Essai_du_Hamma_Alger.jpg/120px-Jardin_d%27Essai_du_Hamma_Alger.jpg" loading="lazy" onerror="this.parentNode.className='csico-e';this.parentNode.innerHTML='🌿'"></div><div class="csinfo"><h4>Jardin d'Essai du Hamma</h4><p>Fondé en 1832. L'allée de palmiers royaux, les serres tropicales et les bassins.</p><span class="cstip">⏱ 1h30 · Ouvert 8h–17h</span></div></div>
+        <div class="circ-stop" onclick="goSite(5)"><div class="csnum">2</div><div class="csico-e">🌳</div><div class="csinfo"><h4>Parc de la Liberté</h4><p>Poumon vert du centre-ville, idéal pour une pause pique-nique.</p><span class="cstip">⏱ 45 min · Entrée libre</span></div></div>
+        <div class="circ-stop" onclick="goSite(13)"><div class="csnum">3</div><div class="csico-e">🌲</div><div class="csinfo"><h4>Forêt de Baïnem</h4><p>Massif forestier classé avec vues panoramiques exceptionnelles sur la baie d'Alger.</p><span class="cstip">⏱ 1h · Sentiers balisés</span></div></div>
+        <div class="circ-stop" onclick="goSite(52)"><div class="csnum">4</div><div class="csico-e">🏔</div><div class="csinfo"><h4>Falaise Saint-Raphaël</h4><p>Site naturel classé, panorama spectaculaire sur la baie. Idéal au coucher du soleil.</p><span class="cstip">⏱ 30 min · Coucher de soleil</span></div></div>
+      </div>
+      <div class="circ-cta"><button class="circ-btn-p" onclick="goPg('map')">🗺 Voir sur la carte</button><button class="circ-btn-s" onclick="saveCircuit('nature')">⭐ Sauvegarder</button></div>
+    </div>
+    <!-- Romain -->
+    <div class="circ-card" id="circ-romain">
+      <div class="circ-banner" style="background:linear-gradient(135deg,#2A1A08,#5A4A1A)"><div class="circ-banner-txt"><h3>🏺 Héritage Romain</h3><p>Sur les traces de l'Antiquité à travers la wilaya d'Alger</p></div></div>
+      <div class="circ-meta"><div class="circ-meta-item">⏱ <strong>Journée complète</strong></div><div class="circ-meta-item">📍 <strong>Musée des Antiquités</strong></div><div class="circ-meta-item">🚗 <strong>Voiture indispensable</strong></div><div class="circ-meta-item">🌡 <strong>Automne / Hiver</strong></div></div>
+      <div class="circ-stops">
+        <div class="circ-stop" onclick="goSite(57)"><div class="csnum">1</div><div class="csico-e">🏛</div><div class="csinfo"><h4>Musée National des Antiquités</h4><p>Mosaïques romaines exceptionnelles, sculptures et bronzes. Meilleur préambule aux sites.</p><span class="cstip">⏱ 1h30 · Fermé lundi</span></div></div>
+        <div class="circ-stop" onclick="goSite(27)"><div class="csnum">2</div><div class="csico-e">🏺</div><div class="csinfo"><h4>Antique Rusguniae — Cap Matifou</h4><p>Vestiges de l'ancienne cité romaine : thermes, nécropoles et rues pavées.</p><span class="cstip">⏱ 1h · Site en plein air</span></div></div>
+        <div class="circ-stop" onclick="goSite(15)"><div class="csnum">3</div><div class="csico-e">🪨</div><div class="csinfo"><h4>Tombeaux mégalithiques de Béni Messous</h4><p>Dolmens et tumuli témoignant de l'occupation préhistorique des hauteurs algéroises.</p><span class="cstip">⏱ 30 min</span></div></div>
+        <div class="circ-stop" onclick="goSite(25)"><div class="csnum">4</div><div class="csico-e">🏺</div><div class="csinfo"><h4>Ruines romaines de Sidi Fredj</h4><p>Vestiges romains sur la presqu'île de Sidi Fredj, combinables avec une balade en bord de mer.</p><span class="cstip">⏱ 45 min · Vue mer</span></div></div>
+      </div>
+      <div class="circ-cta"><button class="circ-btn-p" onclick="goPg('map')">🗺 Voir sur la carte</button><button class="circ-btn-s" onclick="saveCircuit('romain')">⭐ Sauvegarder</button></div>
+    </div>
+    <!-- Mémoire -->
+    <div class="circ-card" id="circ-memoire">
+      <div class="circ-banner" style="background:linear-gradient(135deg,#1A0808,#3A1818)"><div class="circ-banner-txt"><h3>🕯 Lieux de Mémoire</h3><p>Sites liés à la guerre de libération nationale</p></div></div>
+      <div class="circ-meta"><div class="circ-meta-item">⏱ <strong>2–3h</strong></div><div class="circ-meta-item">📍 <strong>Casbah d'Alger</strong></div><div class="circ-meta-item">🚶 <strong>~1,5 km</strong></div><div class="circ-meta-item">📅 <strong>Visite respectueuse</strong></div></div>
+      <div class="circ-stops">
+        <div class="circ-stop" onclick="goSite(55)"><div class="csnum">1</div><div class="csico-e">🕯</div><div class="csinfo"><h4>Maison d'Ali la Pointe</h4><p>Ali la Pointe et ses compagnons y trouvèrent la mort en 1957 lors de la Bataille d'Alger.</p><span class="cstip">⏱ 30 min</span></div></div>
+        <div class="circ-stop" onclick="goSite(43)"><div class="csnum">2</div><div class="csico-e">🏰</div><div class="csinfo"><h4>Prison de Barberousse (Serkadji)</h4><p>Théâtre des exécutions de résistants algériens. Lieu de mémoire nationale classé.</p><span class="cstip">⏱ 30 min</span></div></div>
+        <div class="circ-stop" onclick="goSite(1)"><div class="csnum">3</div><div class="csico"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Algiers_Casbah_general_view.jpg/120px-Algiers_Casbah_general_view.jpg" loading="lazy" onerror="this.parentNode.className='csico-e';this.parentNode.innerHTML='🏘'"></div><div class="csinfo"><h4>Casbah — Quartier de la Bataille d'Alger</h4><p>Ruelles où se déroula la Bataille d'Alger (1956–1957), immortalisée par le film de Pontecorvo.</p><span class="cstip">⏱ 1h · Guide recommandé</span></div></div>
+      </div>
+      <div class="circ-cta"><button class="circ-btn-p" onclick="goPg('map')">🗺 Voir sur la carte</button><button class="circ-btn-s" onclick="saveCircuit('memoire')">⭐ Sauvegarder</button></div>
+    </div>
+  </div>
+  <div class="ft"><p>🚶 <strong data-i18n="circ_title">Circuits Guidés</strong> · Carte du Patrimoine Alger · 2025</p></div>
+</div>
+
+<!-- ══════════════ INFOS PRATIQUES ══════════════ -->
+<div class="pg" id="pg-infos">
+  <div class="info-hero">
+    <div class="slbl" data-i18n="info_lbl">Préparer votre visite</div>
+    <h2 data-i18n="info_title">Infos Pratiques</h2>
+    <p data-i18n="info_desc">Tout ce qu'il faut savoir avant d'explorer le patrimoine d'Alger</p>
+  </div>
+  <div class="info-body">
+    <div class="slbl" style="margin-bottom:16px" data-i18n="best_seasons">Meilleures saisons</div>
+    <div class="saison-grid">
+      <div class="saison-card"><div class="saison-stars">⭐⭐</div><h4 data-i18n="s_winter">Hiver (Déc–Fév)</h4><p data-i18n="s_winter_d">Fraîcheur agréable, peu de touristes. Idéal pour les sites romains.</p></div>
+      <div class="saison-card best"><div class="saison-stars">⭐⭐⭐⭐⭐</div><h4 data-i18n="s_spring">🌸 Printemps (Mars–Mai)</h4><p data-i18n="s_spring_d">Meilleure saison ! Température douce, jardins en fleurs, lumière parfaite.</p></div>
+      <div class="saison-card"><div class="saison-stars">⭐⭐</div><h4 data-i18n="s_summer">Été (Juin–Août)</h4><p data-i18n="s_summer_d">Très chaud (35–40°C). Préférez les visites tôt le matin.</p></div>
+      <div class="saison-card best"><div class="saison-stars">⭐⭐⭐⭐</div><h4 data-i18n="s_autumn">🍂 Automne (Sept–Nov)</h4><p data-i18n="s_autumn_d">Excellente saison, lumière dorée, températures parfaites.</p></div>
+    </div>
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-card-hdr"><div class="info-card-ico" style="background:#FFF3D6">⏰</div><h3 data-i18n="info_hours">Horaires & Tarifs</h3></div>
+        <div class="info-card-body">
+          <div class="info-row"><div class="info-row-ico">🕌</div><div class="info-row-txt"><strong data-i18n="ih_mosque">Mosquées (extérieur)</strong><span data-i18n="ih_mosque_d">Accès libre 24h/24. Intérieur : hors heures de prière, tenue correcte exigée.</span></div></div>
+          <div class="info-row"><div class="info-row-ico">🏛</div><div class="info-row-txt"><strong>Musée National des Antiquités</strong><span data-i18n="ih_mna">Dim–Jeu 9h–16h30. Fermé ven & sam. ~100 DA.</span></div></div>
+          <div class="info-row"><div class="info-row-ico">🌿</div><div class="info-row-txt"><strong>Jardin d'Essai du Hamma</strong><span data-i18n="ih_hamma">Tous les jours 8h–17h (été 19h). ~50 DA adulte.</span></div></div>
+          <div class="info-row"><div class="info-row-ico">⛪</div><div class="info-row-txt"><strong>Basilique Notre-Dame d'Afrique</strong><span data-i18n="ih_nda">Tous les jours 8h30–12h et 15h–18h. Entrée libre.</span></div></div>
+          <div class="info-row"><div class="info-row-ico">🏯</div><div class="info-row-txt"><strong data-i18n="ih_palais">Palais ottomans</strong><span data-i18n="ih_palais_d">Mer–Dim 9h–16h. ~200 DA. Certains fermés le lundi.</span></div></div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-hdr"><div class="info-card-ico" style="background:#D6EEF0">🚌</div><h3 data-i18n="info_transport">Comment y aller</h3></div>
+        <div class="info-card-body">
+          <table class="transport-table">
+            <thead><tr><th data-i18n="tr_means">Moyen</th><th data-i18n="tr_dest">Destination</th><th data-i18n="tr_info">Infos</th></tr></thead>
+            <tbody>
+              <tr><td>🚇 Métro</td><td>Casbah, centre</td><td>Ligne 1 · Station Grande Poste</td></tr>
+              <tr><td>🚌 Bus ETUSA</td><td>Tous quartiers</td><td>Lignes 26, 42 pour la Casbah</td></tr>
+              <tr><td>🚡 Téléphérique</td><td>Casbah haute</td><td>Depuis Place des Martyrs</td></tr>
+              <tr><td>🚕 Taxi / Yassir</td><td>Partout</td><td>App Yassir disponible</td></tr>
+              <tr><td>🚗 Voiture</td><td>Sites éloignés</td><td>Parking difficile centre-ville</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-hdr"><div class="info-card-ico" style="background:#F5EDD5">💡</div><h3 data-i18n="info_tips">Conseils aux visiteurs</h3></div>
+        <div class="info-card-body">
+          <div class="info-row"><div class="info-row-ico">👗</div><div class="info-row-txt"><strong data-i18n="tip_dress">Tenue vestimentaire</strong><span data-i18n="tip_dress_d">Couvrez épaules et genoux pour les mosquées et la Casbah.</span></div></div>
+          <div class="info-row"><div class="info-row-ico">📸</div><div class="info-row-txt"><strong data-i18n="tip_photo">Photographie</strong><span data-i18n="tip_photo_d">Autorisée dans la plupart des sites. Dans les mosquées, demandez l'autorisation.</span></div></div>
+          <div class="info-row"><div class="info-row-ico">💧</div><div class="info-row-txt"><strong data-i18n="tip_water">Eau & alimentation</strong><span data-i18n="tip_water_d">Apportez de l'eau en été. Nombreux cafés dans la Casbah.</span></div></div>
+          <div class="info-row"><div class="info-row-ico">🗺</div><div class="info-row-txt"><strong data-i18n="tip_nav">Se repérer</strong><span data-i18n="tip_nav_d">La Casbah est labyrinthique. Utilisez cette carte ou un guide local agréé.</span></div></div>
+        </div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-hdr"><div class="info-card-ico" style="background:#F0FFF0">📞</div><h3 data-i18n="info_contacts">Contacts utiles</h3></div>
+        <div class="info-card-body">
+          <div class="info-row"><div class="info-row-ico">🏛</div><div class="info-row-txt"><strong data-i18n="ct_tourism">Office du Tourisme d'Alger</strong><span>1, Rue Ismaïl Kerrar · +213 21 71 30 06</span></div></div>
+          <div class="info-row"><div class="info-row-ico">🚨</div><div class="info-row-txt"><strong data-i18n="ct_police">Police (urgences)</strong><span>17 · Place des Martyrs</span></div></div>
+          <div class="info-row"><div class="info-row-ico">🏥</div><div class="info-row-txt"><strong data-i18n="ct_hospital">Hôpital Mustapha Pacha</strong><span>+213 21 23 53 55</span></div></div>
+          <div class="info-row"><div class="info-row-ico">✈</div><div class="info-row-txt"><strong data-i18n="ct_airport">Aéroport Houari Boumédiène</strong><span>~20 km · Bus 24 · Taxi ~800–1200 DA</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><p>🚌 <strong data-i18n="info_title">Infos Pratiques</strong> · Carte du Patrimoine Alger · 2025</p></div>
+</div>
+
+<!-- ══════════════ BLOG ══════════════ -->
+<div class="pg" id="pg-blog">
+  <div class="bhero"><div class="slbl" style="color:var(--gold)" data-i18n="blog_lbl">Actualités & Recherche</div><h2 data-i18n="blog_title">Blog du Patrimoine</h2><p data-i18n="blog_desc">Articles scientifiques, actualités de conservation et découvertes sur le patrimoine algérien</p></div>
+  <div class="bbody">
+    <div class="btags">
+      <button class="btag sel" onclick="fblog(this,'all')" data-i18n="ball">Tous</button>
+      <button class="btag" onclick="fblog(this,'recherche')" data-i18n="b_rech">Recherche</button>
+      <button class="btag" onclick="fblog(this,'conservation')" data-i18n="b_cons">Conservation</button>
+      <button class="btag" onclick="fblog(this,'ottoman')" data-i18n="b_ott">Période ottomane</button>
+      <button class="btag" onclick="fblog(this,'colonial')" data-i18n="b_col">Patrimoine colonial</button>
+      <button class="btag" onclick="fblog(this,'archeologie')" data-i18n="b_arch">Archéologie</button>
+    </div>
+    <div class="bfeat">
+      <div class="bcard" data-cat="ottoman"><div class="bcimg">🕌<div class="bccat" data-i18n="b_featured">À la une</div></div><div class="bcbody"><div class="bcdate">15 mai 2025 · 8 min</div><div class="bctitle" data-i18n="ba1_t">La Casbah d'Alger : état des lieux de la conservation et perspectives de restauration</div><div class="bcex" data-i18n="ba1_x">Classée au patrimoine mondial de l'UNESCO depuis 1992, la Casbah continue de faire face à des défis majeurs. Cet article dresse un état des lieux des travaux engagés et des enjeux à venir…</div><div class="bcauth"><div class="bcav">DR</div><span>Dr. Rania Meziane · Architecte du patrimoine</span></div></div></div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="bcard" data-cat="archeologie"><div class="bcimg bcimg-sm">🏺<div class="bccat" data-i18n="b_arch">Archéologie</div></div><div class="bcbody"><div class="bcdate">3 mai 2025</div><div class="bctitle bctitle-sm" data-i18n="ba2_t">Nouvelles fouilles à Rusguniae : découvertes de la cité romaine de Cap Matifou</div><div class="bcauth"><div class="bcav">PA</div><span>Prof. Ahmed Benali</span></div></div></div>
+        <div class="bcard" data-cat="conservation"><div class="bcimg bcimg-sm" style="background:linear-gradient(135deg,#1A2A1A,#2A5A2A)">🌿<div class="bccat" data-i18n="b_cons">Conservation</div></div><div class="bcbody"><div class="bcdate">28 avril 2025</div><div class="bctitle bctitle-sm" data-i18n="ba3_t">Jardin d'Essai du Hamma : le plan de restauration botanique 2025–2030</div><div class="bcauth"><div class="bcav">SF</div><span>Selma Ferhat</span></div></div></div>
+      </div>
+    </div>
+    <div class="bgrid">
+      <div class="bcard" data-cat="colonial"><div class="bcimg bcimg-sm" style="background:linear-gradient(135deg,#1A1A2A,#2A2A5A)">🏛<div class="bccat" data-i18n="b_col">Colonial</div></div><div class="bcbody"><div class="bcdate">20 avril 2025</div><div class="bctitle bctitle-sm" data-i18n="ba4_t">La Grande Poste : restauration et réappropriation d'un symbole</div><div class="bcex" data-i18n="ba4_x">Retour sur la rénovation du chef-d'œuvre néo-mauresque de Jules Voinot, inauguré en 1910.</div><div class="bcauth"><div class="bcav">KH</div><span>Karim Hadji</span></div></div></div>
+      <div class="bcard" data-cat="ottoman"><div class="bcimg bcimg-sm" style="background:linear-gradient(135deg,#1A2A2A,#2A5A5A)">🏰<div class="bccat" data-i18n="b_ott">Ottoman</div></div><div class="bcbody"><div class="bcdate">12 avril 2025</div><div class="bctitle bctitle-sm" data-i18n="ba5_t">Les forteresses ottomanes de la baie d'Alger</div><div class="bcex" data-i18n="ba5_x">Barberousse, l'Empereur, Cap Caxine : tour d'horizon des fortifications classées.</div><div class="bcauth"><div class="bcav">LB</div><span>Leila Bensalem</span></div></div></div>
+      <div class="bcard" data-cat="recherche"><div class="bcimg bcimg-sm" style="background:linear-gradient(135deg,#2A1A08,#5A4A1A)">📖<div class="bccat" data-i18n="b_rech">Recherche</div></div><div class="bcbody"><div class="bcdate">5 avril 2025</div><div class="bctitle bctitle-sm" data-i18n="ba6_t">Numérisation du patrimoine : vers un inventaire 3D des sites algérois</div><div class="bcex" data-i18n="ba6_x">L'utilisation de la photogrammétrie et du LiDAR pour documenter les sites en péril.</div><div class="bcauth"><div class="bcav">AO</div><span>Dr. Amine Ouali</span></div></div></div>
+    </div>
+  </div>
+  <div class="ft"><p>📰 <strong data-i18n="blog_title">Blog du Patrimoine</strong> · Carte du Patrimoine Alger · 2025</p></div>
+</div>
+
+<!-- ══════════════ CONTACT ══════════════ -->
+<div class="pg" id="pg-contact">
+  <div class="chero"><div class="slbl" data-i18n="cont_lbl">Nous écrire</div><h2 data-i18n="cont_title">Contact & Contribution</h2><p data-i18n="cont_desc">Chercheurs, archéologues, passionnés — rejoignez le réseau des contributeurs</p></div>
+  <div class="cbody">
+    <div class="cinfo">
+      <h3 data-i18n="cont_coord">Coordonnées</h3>
+      <div class="citm"><div class="cico">🏛</div><div class="ctxt"><strong data-i18n="cont_dir">Direction du Patrimoine</strong><span data-i18n="cont_wil">Wilaya d'Alger</span></div></div>
+      <div class="citm"><div class="cico">📍</div><div class="ctxt"><strong data-i18n="cont_addr">Adresse</strong><span>Palais du Gouvernement, Place de la Concorde, Alger</span></div></div>
+      <div class="citm"><div class="cico">✉</div><div class="ctxt"><strong>Email</strong><span>patrimoine@wilaya-alger.dz</span></div></div>
+      <div class="citm"><div class="cico">📞</div><div class="ctxt"><strong data-i18n="cont_phone">Téléphone</strong><span>+213 (0)21 73 xx xx</span></div></div>
+      <div class="citm"><div class="cico">⏰</div><div class="ctxt"><strong data-i18n="cont_hours">Horaires</strong><span data-i18n="cont_hours_d">Dim – Jeu, 8h30 – 16h30</span></div></div>
+      <div class="socrow"><button class="socbtn">📘</button><button class="socbtn">🐦</button><button class="socbtn">📸</button><button class="socbtn">▶</button></div>
+    </div>
+    <div>
+      <div class="cform">
+        <h3 data-i18n="cont_form">Envoyez-nous un message</h3>
+        <div class="fgrid2">
+          <div class="frow2"><label class="flbl" data-i18n="f_first">Prénom *</label><input class="finp" type="text"></div>
+          <div class="frow2"><label class="flbl" data-i18n="f_last">Nom *</label><input class="finp" type="text"></div>
+        </div>
+        <div class="frow2"><label class="flbl">Email *</label><input class="finp" type="email" placeholder="votre@email.com"></div>
+        <div class="frow2"><label class="flbl" data-i18n="f_subject">Sujet</label><select class="finp" style="cursor:pointer"><option data-i18n="fs1">Signalement d'une erreur</option><option data-i18n="fs2">Contribution de données / photos</option><option data-i18n="fs3">Partenariat institutionnel</option><option data-i18n="fs4">Question scientifique</option></select></div>
+        <div class="frow2"><label class="flbl" data-i18n="f_message">Message *</label><textarea class="finp"></textarea></div>
+        <button class="bsend" onclick="sendForm()">📨 <span data-i18n="f_send">Envoyer le message</span></button>
+        <div class="fsuccess" id="fsuccess"><p data-i18n="f_ok">✅ Message envoyé ! Nous vous répondrons dans les 48h ouvrables.</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="ft"><p>✉ <strong data-i18n="cont_title">Contact</strong> · Carte du Patrimoine Alger · 2025</p></div>
+</div>
+
+<!-- ══ GALERIE OVERLAY ══ -->
+<div class="gal-overlay" id="gal-overlay">
+  <div class="gal-topbar">
+    <span class="gal-title" id="gal-site-name">Galerie</span>
+    <span class="gal-counter" id="gal-counter">1 / 1</span>
+    <button class="gal-close" onclick="closeGalerie()">✕</button>
+  </div>
+  <div class="gal-main">
+    <button class="gal-nav gal-prev" onclick="galNav(-1)">‹</button>
+    <div class="gal-img-wrap"><img id="gal-main-img" src="" alt=""></div>
+    <button class="gal-nav gal-next" onclick="galNav(1)">›</button>
+  </div>
+  <div class="gal-caption"><h4 id="gal-cap-title"></h4><p id="gal-cap-credit">© Wikimedia Commons — Licence CC BY-SA</p></div>
+  <div class="gal-thumbs" id="gal-thumbs"></div>
+</div>
+
+<script>
+/* ══════════════════════════════════════
+   TRANSLATIONS (FR / EN / AR)
+══════════════════════════════════════ */
+const T={
+  fr:{
+    nav_title:"Patrimoine Alger",nav_home:"🏠 Accueil",nav_map:"🗺 Carte",nav_circuits:"🚶 Circuits",nav_infos:"🚌 Infos pratiques",nav_blog:"📰 Blog",nav_contact:"✉ Contact",nav_cta:"Explorer →",
+    badge:"Wilaya d'Alger · Patrimoine culturel protégé",hero_title:"Carte du",hero_em:"Patrimoine",
+    hero_desc:"Explorez les 67 sites patrimoniaux classés et inscrits de la wilaya d'Alger — mosquées, forteresses ottomanes, palais, sites archéologiques et jardins historiques.",
+    hero_btn1:"🗺 Ouvrir la carte interactive",hero_btn2:"🚶 Voir les circuits",
+    stat1:"Sites recensés",stat2:"Monuments classés",stat3:"Sites inscrits",stat4:"Circuits guidés",stat5:"Langues",scroll:"Défiler",
+    sec_lbl1:"Sites phares",sec_title1:"Monuments emblématiques d'Alger",sec_desc1:"Parmi les 67 sites patrimoniaux recensés, quelques joyaux qui illustrent la richesse et la diversité du patrimoine algérois.",
+    sec_lbl2:"Application",sec_title2:"Tout pour explorer le patrimoine",
+    lbl_classe:"Classé",lbl_inscrit:"Inscrit",
+    site_casbah:"La Casbah d'Alger",site_casbah_d:"Inscrite au patrimoine mondial UNESCO en 1992, joyau de l'architecture islamique méditerranéenne.",
+    site_gm:"Grande Mosquée (Djamaâ El Kébir)",site_gm_d:"La plus ancienne mosquée d'Alger, construite sous les Zirides au XIe siècle.",
+    site_hamma:"Jardin d'Essai du Hamma",site_hamma_d:"L'un des plus beaux jardins botaniques d'Afrique du Nord.",
+    site_nda:"Basilique Notre-Dame d'Afrique",site_nda_d:"Chef-d'œuvre néo-byzantin dominant la baie d'Alger.",
+    site_gp:"La Grande Poste d'Alger",site_gp_d:"Chef-d'œuvre de Jules Voinot mêlant style hispano-mauresque et modernité.",
+    site_ketch:"Mosquée Ketchaoua",site_ketch_d:"Joyau de la Casbah mêlant art ottoman et influences andalouses.",
+    f1t:"Carte interactive",f1d:"Visualisez les 67 sites sur OpenStreetMap. Pins colorés par statut, filtres en temps réel.",
+    f2t:"5 Circuits guidés",f2d:"Ottoman, Colonial, Nature, Romain, Mémoire — itinéraires complets avec durées et conseils.",
+    f3t:"Infos pratiques",f3d:"Horaires, tarifs, transports, meilleures saisons, contacts utiles.",
+    f4t:"Galerie photos",f4d:"Galerie immersive plein écran pour chaque site.",
+    f5t:"Trilingue FR / AR / EN",f5d:"Interface en français, anglais et arabe pour tous les visiteurs.",
+    f6t:"Générateur QR Code",f6d:"QR Code téléchargeable pour chaque site.",
+    search_ph:"Rechercher un site…",chip_all:"Tous",chip_classe:"Classés",chip_inscrit:"Inscrits",chip_fav:"Favoris",chip_adv:"Filtres ▾",
+    adv_type:"Type de bien",adv_period:"Période",
+    btn_fav:"Ajouter aux favoris",btn_center:"Centrer sur la carte",btn_gallery:"Galerie photos",btn_qr:"Générer QR Code",qr_label:"QR vers la fiche du site",btn_dl:"Télécharger PNG",
+    circ_lbl:"Tourisme & Découverte",circ_title:"Circuits Guidés",circ_desc:"5 itinéraires thématiques pour explorer le patrimoine d'Alger à votre rythme",
+    c1:"Alger Ottoman",c2:"Architecture Coloniale",c3:"Jardins & Nature",c4:"Héritage Romain",c5:"Lieux de Mémoire",
+    c1_sub:"Au cœur de la Casbah, sur les traces de la régence ottomane",
+    duration:"Durée",start:"Départ",ideal:"Idéal",c1_dur:"Demi-journée (3–4h)",c1_start:"Place des Martyrs",c1_season:"Printemps / Automne",
+    s1_1:"La plus ancienne mosquée d'Alger (1097). Commencez tôt pour éviter la foule.",s1_2:"Architecture baroque ottomane unique au plan en croix grecque (1660).",
+    s1_3:"Joyau mêlant styles ottoman et byzantin, restaurée en 2018.",s1_4:"L'un des plus beaux palais ottomans de la Casbah.",
+    s1_5t:"Promenade libre dans la Casbah",s1_5:"Ruelles de la haute Casbah, maisons à patio et vues panoramiques.",
+    s_dress:"Tenue correcte",s_photos:"Photos autorisées",s_museum:"Musée intégré",s_shoes:"Chaussures confortables",
+    see_map:"Voir sur la carte",save_circ:"Sauvegarder",
+    info_lbl:"Préparer votre visite",info_title:"Infos Pratiques",info_desc:"Tout ce qu'il faut savoir avant d'explorer le patrimoine d'Alger",
+    best_seasons:"Meilleures saisons",s_winter:"Hiver (Déc–Fév)",s_winter_d:"Fraîcheur agréable, peu de touristes.",s_spring:"🌸 Printemps (Mars–Mai)",s_spring_d:"Meilleure saison ! Température douce, jardins en fleurs.",s_summer:"Été (Juin–Août)",s_summer_d:"Très chaud. Préférez les visites tôt le matin.",s_autumn:"🍂 Automne (Sept–Nov)",s_autumn_d:"Excellente saison, lumière dorée.",
+    info_hours:"Horaires & Tarifs",ih_mosque:"Mosquées (extérieur)",ih_mosque_d:"Accès libre 24h/24. Intérieur : hors heures de prière.",ih_mna:"Dim–Jeu 9h–16h30. ~100 DA.",ih_hamma:"Tous les jours 8h–17h. ~50 DA adulte.",ih_nda:"Tous les jours 8h30–18h. Entrée libre.",ih_palais:"Palais ottomans",ih_palais_d:"Mer–Dim 9h–16h. ~200 DA.",
+    info_transport:"Comment y aller",tr_means:"Moyen",tr_dest:"Destination",tr_info:"Infos",
+    info_tips:"Conseils aux visiteurs",tip_dress:"Tenue vestimentaire",tip_dress_d:"Couvrez épaules et genoux pour les mosquées.",tip_photo:"Photographie",tip_photo_d:"Autorisée dans la plupart des sites. Demandez dans les mosquées.",tip_water:"Eau & alimentation",tip_water_d:"Apportez de l'eau en été. Nombreux cafés dans la Casbah.",tip_nav:"Se repérer",tip_nav_d:"La Casbah est labyrinthique. Utilisez cette carte ou un guide agréé.",
+    info_contacts:"Contacts utiles",ct_tourism:"Office du Tourisme d'Alger",ct_police:"Police (urgences)",ct_hospital:"Hôpital Mustapha Pacha",ct_airport:"Aéroport Houari Boumédiène",
+    blog_lbl:"Actualités & Recherche",blog_title:"Blog du Patrimoine",blog_desc:"Articles scientifiques, actualités de conservation et découvertes sur le patrimoine algérien",
+    ball:"Tous",b_rech:"Recherche",b_cons:"Conservation",b_ott:"Période ottomane",b_col:"Patrimoine colonial",b_arch:"Archéologie",b_featured:"À la une",
+    ba1_t:"La Casbah d'Alger : état des lieux de la conservation",ba1_x:"Classée UNESCO en 1992, la Casbah continue de faire face à des défis majeurs.",
+    ba2_t:"Nouvelles fouilles à Rusguniae",ba3_t:"Jardin d'Essai du Hamma : plan de restauration 2025–2030",
+    ba4_t:"La Grande Poste : restauration et réappropriation d'un symbole",ba4_x:"Retour sur la rénovation du chef-d'œuvre néo-mauresque de Jules Voinot.",
+    ba5_t:"Les forteresses ottomanes de la baie d'Alger",ba5_x:"Barberousse, l'Empereur, Cap Caxine : tour d'horizon des fortifications classées.",
+    ba6_t:"Numérisation du patrimoine : vers un inventaire 3D",ba6_x:"L'utilisation de la photogrammétrie et du LiDAR pour documenter les sites en péril.",
+    cont_lbl:"Nous écrire",cont_title:"Contact & Contribution",cont_desc:"Chercheurs, archéologues, passionnés — rejoignez le réseau des contributeurs",
+    cont_coord:"Coordonnées",cont_dir:"Direction du Patrimoine",cont_wil:"Wilaya d'Alger",cont_addr:"Adresse",cont_phone:"Téléphone",cont_hours:"Horaires",cont_hours_d:"Dim – Jeu, 8h30 – 16h30",
+    cont_form:"Envoyez-nous un message",f_first:"Prénom *",f_last:"Nom *",f_subject:"Sujet",f_message:"Message *",f_send:"Envoyer le message",f_ok:"✅ Message envoyé ! Nous vous répondrons dans les 48h ouvrables.",
+    fs1:"Signalement d'une erreur",fs2:"Contribution de données",fs3:"Partenariat institutionnel",fs4:"Question scientifique",
+    footer_title:"Carte du Patrimoine — Wilaya d'Alger",footer_sub:"Données : Ministère de la Culture · Carte © OpenStreetMap · CARTO"
+  },
+  en:{
+    nav_title:"Algiers Heritage",nav_home:"🏠 Home",nav_map:"🗺 Map",nav_circuits:"🚶 Tours",nav_infos:"🚌 Visitor Info",nav_blog:"📰 Blog",nav_contact:"✉ Contact",nav_cta:"Explore →",
+    badge:"Wilaya of Algiers · Protected Cultural Heritage",hero_title:"Heritage",hero_em:"Map",
+    hero_desc:"Explore the 67 listed and registered heritage sites of the Wilaya of Algiers — mosques, Ottoman fortresses, palaces, archaeological sites and historic gardens.",
+    hero_btn1:"🗺 Open Interactive Map",hero_btn2:"🚶 See Guided Tours",
+    stat1:"Listed sites",stat2:"Classified monuments",stat3:"Registered sites",stat4:"Guided tours",stat5:"Languages",scroll:"Scroll",
+    sec_lbl1:"Featured sites",sec_title1:"Iconic Monuments of Algiers",sec_desc1:"Among the 67 heritage sites recorded, a few jewels illustrating the richness and diversity of Algiers' heritage.",
+    sec_lbl2:"App Features",sec_title2:"Everything to Explore Heritage",
+    lbl_classe:"Classified",lbl_inscrit:"Registered",
+    site_casbah:"The Casbah of Algiers",site_casbah_d:"UNESCO World Heritage since 1992, a jewel of Islamic Mediterranean architecture.",
+    site_gm:"Grand Mosque (Djamaâ El Kébir)",site_gm_d:"The oldest mosque in Algiers, built under the Zirids in the 11th century.",
+    site_hamma:"Hamma Botanical Garden",site_hamma_d:"One of the most beautiful botanical gardens in North Africa.",
+    site_nda:"Basilica of Our Lady of Africa",site_nda_d:"Neo-Byzantine masterpiece overlooking the Bay of Algiers.",
+    site_gp:"Central Post Office of Algiers",site_gp_d:"Neo-Moorish masterpiece by Jules Voinot blending Hispano-Moorish style and modernity.",
+    site_ketch:"Ketchaoua Mosque",site_ketch_d:"Gem of the Casbah blending Ottoman art and Andalusian influences.",
+    f1t:"Interactive Map",f1d:"View all 67 sites on OpenStreetMap with real-time filters.",
+    f2t:"5 Guided Tours",f2d:"Ottoman, Colonial, Nature, Roman, Memory — complete itineraries.",
+    f3t:"Visitor Information",f3d:"Opening hours, fares, transport, best seasons, useful contacts.",
+    f4t:"Photo Gallery",f4d:"Immersive full-screen gallery for each site.",
+    f5t:"Trilingual FR / AR / EN",f5d:"Interface in French, English and Arabic for all visitors.",
+    f6t:"QR Code Generator",f6d:"Downloadable QR code for each heritage site.",
+    search_ph:"Search a site…",chip_all:"All",chip_classe:"Classified",chip_inscrit:"Registered",chip_fav:"Favorites",chip_adv:"Filters ▾",
+    adv_type:"Type",adv_period:"Period",
+    btn_fav:"Add to favorites",btn_center:"Center on map",btn_gallery:"Photo gallery",btn_qr:"Generate QR Code",qr_label:"QR for this site",btn_dl:"Download PNG",
+    circ_lbl:"Tourism & Discovery",circ_title:"Guided Tours",circ_desc:"5 themed itineraries to explore Algiers' heritage at your own pace",
+    c1:"Ottoman Algiers",c2:"Colonial Architecture",c3:"Gardens & Nature",c4:"Roman Heritage",c5:"Memory Sites",
+    c1_sub:"In the heart of the Casbah, following the Ottoman regency (16th–19th c.)",
+    duration:"Duration",start:"Start",ideal:"Best",c1_dur:"Half-day (3–4h)",c1_start:"Place des Martyrs",c1_season:"Spring / Autumn",
+    s1_1:"The oldest mosque in Algiers (1097). Start early to avoid crowds.",s1_2:"Unique Ottoman baroque architecture with Greek cross plan (1660).",
+    s1_3:"Gem blending Ottoman and Byzantine styles, restored in 2018.",s1_4:"One of the finest Ottoman palaces in the Casbah.",
+    s1_5t:"Free walk through the Casbah",s1_5:"Winding alleys, courtyard houses and panoramic views over the bay.",
+    s_dress:"Dress code required",s_photos:"Photos allowed",s_museum:"Museum included",s_shoes:"Comfortable shoes",
+    see_map:"View on map",save_circ:"Save tour",
+    info_lbl:"Plan your visit",info_title:"Visitor Information",info_desc:"Everything you need to know before exploring Algiers' heritage",
+    best_seasons:"Best seasons",s_winter:"Winter (Dec–Feb)",s_winter_d:"Pleasant coolness, few tourists. Great for open-air Roman sites.",s_spring:"🌸 Spring (Mar–May)",s_spring_d:"Best season! Mild temperatures, gardens in bloom, perfect light.",s_summer:"Summer (Jun–Aug)",s_summer_d:"Very hot (35–40°C). Prefer early morning visits.",s_autumn:"🍂 Autumn (Sep–Nov)",s_autumn_d:"Excellent season, golden light, perfect temperatures.",
+    info_hours:"Opening Hours & Prices",ih_mosque:"Mosques (exterior)",ih_mosque_d:"Free access 24/7. Interior: outside prayer times, dress code required.",ih_mna:"Sun–Thu 9am–4:30pm. ~100 DZD.",ih_hamma:"Daily 8am–5pm (summer 7pm). ~50 DZD adults.",ih_nda:"Daily 8:30am–12pm & 3–6pm. Free entry.",ih_palais:"Ottoman Palaces",ih_palais_d:"Wed–Sun 9am–4pm. ~200 DZD. Some closed Mondays.",
+    info_transport:"How to get there",tr_means:"Transport",tr_dest:"Destination",tr_info:"Info",
+    info_tips:"Visitor Tips",tip_dress:"Dress code",tip_dress_d:"Cover shoulders and knees for mosques and the Casbah.",tip_photo:"Photography",tip_photo_d:"Allowed at most sites. Ask permission inside mosques.",tip_water:"Water & food",tip_water_d:"Bring water, especially in summer. Many cafés in the Casbah.",tip_nav:"Getting around",tip_nav_d:"The Casbah is maze-like. Use this map or a licensed local guide.",
+    info_contacts:"Useful Contacts",ct_tourism:"Algiers Tourist Office",ct_police:"Police (emergency)",ct_hospital:"Mustapha Pacha Hospital",ct_airport:"Houari Boumédiène Airport",
+    blog_lbl:"News & Research",blog_title:"Heritage Blog",blog_desc:"Scientific articles, conservation news and discoveries about Algerian heritage",
+    ball:"All",b_rech:"Research",b_cons:"Conservation",b_ott:"Ottoman period",b_col:"Colonial heritage",b_arch:"Archaeology",b_featured:"Featured",
+    ba1_t:"The Casbah of Algiers: Conservation Status and Restoration Prospects",ba1_x:"Listed as UNESCO World Heritage since 1992, the Casbah continues to face major challenges.",
+    ba2_t:"New excavations at Rusguniae",ba3_t:"Hamma Garden: Botanical Restoration Plan 2025–2030",
+    ba4_t:"The Grand Post Office: Restoration of an Icon",ba4_x:"The renovation of Jules Voinot's neo-Moorish masterpiece, inaugurated in 1910.",
+    ba5_t:"Ottoman Fortresses of the Bay of Algiers",ba5_x:"Barbarossa, Fort l'Empereur, Cap Caxine: an overview of classified fortifications.",
+    ba6_t:"Heritage Digitisation: Towards a 3D Inventory",ba6_x:"Using photogrammetry and LiDAR to document endangered sites.",
+    cont_lbl:"Get in touch",cont_title:"Contact & Contribute",cont_desc:"Researchers, archaeologists, enthusiasts — join the network of contributors",
+    cont_coord:"Contact Details",cont_dir:"Heritage Directorate",cont_wil:"Wilaya of Algiers",cont_addr:"Address",cont_phone:"Phone",cont_hours:"Opening hours",cont_hours_d:"Sun – Thu, 8:30am – 4:30pm",
+    cont_form:"Send us a message",f_first:"First name *",f_last:"Last name *",f_subject:"Subject",f_message:"Message *",f_send:"Send message",f_ok:"✅ Message sent! We'll reply within 48 working hours.",
+    fs1:"Report an error",fs2:"Data / photo contribution",fs3:"Institutional partnership",fs4:"Scientific inquiry",
+    footer_title:"Heritage Map — Wilaya of Algiers",footer_sub:"Data: Ministry of Culture and Arts · Map © OpenStreetMap · CARTO"
+  },
+  ar:{
+    nav_title:"تراث الجزائر",nav_home:"🏠 الرئيسية",nav_map:"🗺 الخريطة",nav_circuits:"🚶 المسارات",nav_infos:"🚌 معلومات الزوار",nav_blog:"📰 المدونة",nav_contact:"✉ اتصل بنا",nav_cta:"استكشف ←",
+    badge:"ولاية الجزائر · التراث الثقافي المحمي",hero_title:"خريطة",hero_em:"التراث",
+    hero_desc:"استكشف 67 موقعاً تراثياً مصنّفاً في ولاية الجزائر — مساجد، وقلاع عثمانية، وقصور، ومواقع أثرية وحدائق تاريخية.",
+    hero_btn1:"🗺 فتح الخريطة التفاعلية",hero_btn2:"🚶 عرض المسارات السياحية",
+    stat1:"مواقع مُحصاة",stat2:"معالم مصنّفة",stat3:"مواقع مسجّلة",stat4:"مسارات سياحية",stat5:"لغات",scroll:"تمرير",
+    sec_lbl1:"أبرز المواقع",sec_title1:"المعالم الأيقونية للجزائر العاصمة",sec_desc1:"من بين 67 موقعاً تراثياً مُحصى، روائع تعكس غنى التراث الجزائري وتنوعه.",
+    sec_lbl2:"التطبيق",sec_title2:"كل ما تحتاجه لاستكشاف التراث",
+    lbl_classe:"مصنّف",lbl_inscrit:"مُسجَّل",
+    site_casbah:"قصبة الجزائر",site_casbah_d:"مدرجة في التراث العالمي لليونسكو منذ 1992، جوهرة العمارة الإسلامية المتوسطية.",
+    site_gm:"الجامع الكبير (جامع الكبير)",site_gm_d:"أقدم مسجد في الجزائر، بُني في عهد الزيريين في القرن الحادي عشر.",
+    site_hamma:"حديقة التجارب الحامة",site_hamma_d:"واحدة من أجمل الحدائق النباتية في شمال أفريقيا.",
+    site_nda:"كنيسة سيدة أفريقيا",site_nda_d:"تحفة بيزنطية جديدة تُشرف على خليج الجزائر.",
+    site_gp:"المقر الرئيسي للبريد المركزي",site_gp_d:"تحفة معمارية لجول فوانو تجمع بين الطراز الإسباني-المغربي والحداثة.",
+    site_ketch:"مسجد كتشاوة",site_ketch_d:"جوهرة القصبة التي تجمع بين الفن العثماني والتأثيرات الأندلسية.",
+    f1t:"خريطة تفاعلية",f1d:"تصفح 67 موقعاً على OpenStreetMap مع فلاتر آنية.",
+    f2t:"5 مسارات سياحية",f2d:"عثماني، استعماري، طبيعة، روماني، مواقع ذاكرة.",
+    f3t:"معلومات عملية",f3d:"أوقات العمل، أسعار الدخول، وسائل النقل، أفضل المواسم.",
+    f4t:"معرض الصور",f4d:"معرض غامر بشاشة كاملة لكل موقع.",
+    f5t:"ثلاثي اللغات FR / AR / EN",f5d:"الواجهة متاحة بالفرنسية والإنجليزية والعربية.",
+    f6t:"مولّد QR Code",f6d:"رمز QR قابل للتنزيل لكل موقع تراثي.",
+    search_ph:"ابحث عن موقع…",chip_all:"الكل",chip_classe:"مصنّفة",chip_inscrit:"مسجّلة",chip_fav:"المفضلة",chip_adv:"فلاتر ▾",
+    adv_type:"نوع الموقع",adv_period:"الحقبة",
+    btn_fav:"أضف إلى المفضلة",btn_center:"توسيع على الخريطة",btn_gallery:"معرض الصور",btn_qr:"إنشاء QR Code",qr_label:"QR لهذا الموقع",btn_dl:"تنزيل PNG",
+    circ_lbl:"سياحة واكتشاف",circ_title:"المسارات السياحية",circ_desc:"5 مسارات موضوعاتية لاستكشاف تراث الجزائر بالوتيرة التي تناسبك",
+    c1:"الجزائر العثمانية",c2:"العمارة الاستعمارية",c3:"حدائق وطبيعة",c4:"الإرث الروماني",c5:"مواقع الذاكرة",
+    c1_sub:"في قلب القصبة، على آثار الحكم العثماني (ق16–19)",
+    duration:"المدة",start:"الانطلاق",ideal:"الأنسب",c1_dur:"نصف يوم (3–4 ساعات)",c1_start:"ساحة الشهداء",c1_season:"الربيع / الخريف",
+    s1_1:"أقدم مسجد في الجزائر (1097). ابدأ مبكراً لتفادي الازدحام.",s1_2:"عمارة عثمانية باروكية فريدة بمخطط صليب يوناني (1660).",
+    s1_3:"جوهرة تجمع الطرازين العثماني والبيزنطي، رُمّمت عام 2018.",s1_4:"أحد أجمل القصور العثمانية في القصبة.",
+    s1_5t:"جولة حرة في القصبة",s1_5:"أزقة القصبة العليا وبيوتها ذات الأفنية ومناظر الخليج.",
+    s_dress:"لباس محتشم",s_photos:"التصوير مسموح",s_museum:"متحف مدمج",s_shoes:"أحذية مريحة",
+    see_map:"عرض على الخريطة",save_circ:"حفظ المسار",
+    info_lbl:"التخطيط لزيارتك",info_title:"معلومات عملية",info_desc:"كل ما تحتاجه قبل استكشاف تراث الجزائر",
+    best_seasons:"أفضل المواسم",s_winter:"الشتاء (ديس–فبر)",s_winter_d:"برودة لطيفة، قليل من السياح.",s_spring:"🌸 الربيع (مارس–ماي)",s_spring_d:"أفضل موسم! حرارة معتدلة وحدائق مزهرة وإضاءة مثالية.",s_summer:"الصيف (يون–أوغ)",s_summer_d:"حرارة شديدة. يُفضَّل الزيارة صباحاً مبكراً.",s_autumn:"🍂 الخريف (سبت–نوف)",s_autumn_d:"موسم ممتاز، ضوء ذهبي وحرارة مثالية.",
+    info_hours:"أوقات العمل والأسعار",ih_mosque:"المساجد (من الخارج)",ih_mosque_d:"دخول حر 24/24. الداخل: خارج أوقات الصلاة، لباس محتشم.",ih_mna:"الأحد–الخميس 9–16:30. ~100 دج.",ih_hamma:"يومياً 8–17 (صيفاً 19). ~50 دج للبالغين.",ih_nda:"يومياً 8:30–12 و15–18. دخول مجاني.",ih_palais:"القصور العثمانية",ih_palais_d:"الأربعاء–الأحد 9–16. ~200 دج.",
+    info_transport:"كيف تصل",tr_means:"وسيلة النقل",tr_dest:"الوجهة",tr_info:"معلومات",
+    info_tips:"نصائح للزوار",tip_dress:"اللباس",tip_dress_d:"غطّ الكتفين والركبتين عند زيارة المساجد والقصبة.",tip_photo:"التصوير",tip_photo_d:"مسموح في معظم المواقع. استأذن داخل المساجد.",tip_water:"الماء والتغذية",tip_water_d:"احمل ماء خاصةً في الصيف. كثير من المقاهي في القصبة.",tip_nav:"التنقل",tip_nav_d:"القصبة متاهية. استخدم هذه الخريطة أو مرشداً سياحياً معتمداً.",
+    info_contacts:"اتصالات مفيدة",ct_tourism:"ديوان السياحة – الجزائر",ct_police:"الشرطة (طوارئ)",ct_hospital:"مستشفى مصطفى باشا",ct_airport:"مطار هواري بومدين",
+    blog_lbl:"أخبار وبحوث",blog_title:"مدونة التراث",blog_desc:"مقالات علمية وأخبار الحفظ واكتشافات التراث الجزائري",
+    ball:"الكل",b_rech:"بحث",b_cons:"صون التراث",b_ott:"الحقبة العثمانية",b_col:"التراث الاستعماري",b_arch:"الآثار",b_featured:"المميز",
+    ba1_t:"قصبة الجزائر: وضع الصون وآفاق الترميم",ba1_x:"مدرجة في اليونسكو منذ 1992، تواجه القصبة تحديات كبرى.",
+    ba2_t:"حفريات جديدة في روسغونياي",ba3_t:"حديقة الحامة: خطة الترميم النباتي 2025–2030",
+    ba4_t:"البريد المركزي: الترميم وإعادة التملّك",ba4_x:"العودة إلى تجديد تحفة جول فوانو المعمارية المُفتتحة عام 1910.",
+    ba5_t:"قلاع عثمانية في خليج الجزائر",ba5_x:"بربروس، الإمبراطور، رأس القصرين: جولة في التحصينات المصنّفة.",
+    ba6_t:"رقمنة التراث: نحو جرد ثلاثي الأبعاد",ba6_x:"استخدام التصوير الضوئي والليدار لتوثيق المواقع المهددة.",
+    cont_lbl:"راسلنا",cont_title:"التواصل والمساهمة",cont_desc:"باحثون، علماء آثار، مهتمون — انضموا إلى شبكة المساهمين",
+    cont_coord:"معلومات الاتصال",cont_dir:"مديرية التراث",cont_wil:"ولاية الجزائر",cont_addr:"العنوان",cont_phone:"الهاتف",cont_hours:"ساعات العمل",cont_hours_d:"الأحد – الخميس، 8:30 – 16:30",
+    cont_form:"أرسل لنا رسالة",f_first:"الاسم الأول *",f_last:"اللقب *",f_subject:"الموضوع",f_message:"الرسالة *",f_send:"إرسال",f_ok:"✅ تم الإرسال! سنرد خلال 48 ساعة عمل.",
+    fs1:"الإبلاغ عن خطأ",fs2:"مساهمة ببيانات / صور",fs3:"شراكة مؤسسية",fs4:"سؤال علمي",
+    footer_title:"خريطة التراث — ولاية الجزائر",footer_sub:"البيانات: وزارة الثقافة والفنون · الخريطة © OpenStreetMap · CARTO"
+  }
+};
+
+let curLang='fr';
+function setLang(l){
+  curLang=l;
+  document.getElementById('html-root').setAttribute('lang',l);
+  document.body.className=l==='ar'?'lang-ar':'';
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const k=el.getAttribute('data-i18n');
+    if(T[l]&&T[l][k])el.textContent=T[l][k];
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    const k=el.getAttribute('data-i18n-ph');
+    if(T[l]&&T[l][k])el.placeholder=T[l][k];
+  });
+  document.querySelectorAll('.lang-btn').forEach(b=>{b.classList.toggle('act',b.textContent===l.toUpperCase())});
+}
+
+/* ══════════════════════════════════════
+   HERO SLIDESHOW
+══════════════════════════════════════ */
+const slides=document.querySelectorAll('.hero-slide');
+const dotsWrap=document.getElementById('hero-dots');
+let si=0,heroTimer;
+slides.forEach((_,i)=>{
+  const d=document.createElement('button');
+  d.className='hero-dot'+(i===0?' act':'');
+  d.onclick=()=>goSlide(i);
+  dotsWrap.appendChild(d);
+});
+function goSlide(idx){
+  slides[si].classList.remove('act');
+  document.querySelectorAll('.hero-dot')[si].classList.remove('act');
+  si=idx;
+  slides[si].classList.add('act');
+  document.querySelectorAll('.hero-dot')[si].classList.add('act');
+  resetTimer();
+}
+function nextSlide(){goSlide((si+1)%slides.length)}
+function resetTimer(){clearInterval(heroTimer);heroTimer=setInterval(nextSlide,5000)}
+resetTimer();
+
+/* ══════════════════════════════════════
+   DATASET (67 sites)
+══════════════════════════════════════ */
+const TI={'Mosquée / Lieu de culte':'🕌','Fortification':'🏰','Site naturel / Paysager':'🌿','Palais / Résidence':'🏯','Musée':'🏛','Patrimoine hydraulique':'⛲','Site archéologique':'🏺','Patrimoine civil / Colonial':'🏗','Édifice religieux':'⛪','Monument historique':'🗿'};
+const TC={'Mosquée / Lieu de culte':'#4A7B9D','Fortification':'#6B4423','Site naturel / Paysager':'#3A7A3A','Palais / Résidence':'#7A4A7A','Musée':'#4A4A8A','Patrimoine hydraulique':'#2A6B8A','Site archéologique':'#8A6A2A','Patrimoine civil / Colonial':'#5A5A8A','Édifice religieux':'#8A4A4A','Monument historique':'#5A5A5A'};
+const PHOTOS={
+  1:'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Algiers_Casbah_general_view.jpg/600px-Algiers_Casbah_general_view.jpg',
+  6:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Jardin_d%27Essai_du_Hamma_Alger.jpg/600px-Jardin_d%27Essai_du_Hamma_Alger.jpg',
+  14:'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Ketchaoua_Mosque_Algiers.jpg/600px-Ketchaoua_Mosque_Algiers.jpg',
+  22:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Djam%C4%81%27a_al-jad%C4%ABd.jpg/600px-Djam%C4%81%27a_al-jad%C4%ABd.jpg',
+  29:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Notre_Dame_d%27Afrique_Algiers.jpg/600px-Notre_Dame_d%27Afrique_Algiers.jpg',
+  39:'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Djamaael-kebir.jpg/600px-Djamaael-kebir.jpg',
+  44:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Universit%C3%A9_d%27Alger.jpg/600px-Universit%C3%A9_d%27Alger.jpg',
+  45:'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Grande_Poste_d%27Alger.jpg/600px-Grande_Poste_d%27Alger.jpg',
+  46:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Theatre_National_Algerien.jpg/600px-Theatre_National_Algerien.jpg',
+  56:'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ac/Mus%C3%A9e_du_Bardo_Alger.jpg/600px-Mus%C3%A9e_du_Bardo_Alger.jpg',
+  57:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Mus%C3%A9e_national_des_antiquit%C3%A9s_Alger.jpg/600px-Mus%C3%A9e_national_des_antiquit%C3%A9s_Alger.jpg',
+  58:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/Mus%C3%A9e_national_des_Beaux-Arts_d%27Alger.jpg/600px-Mus%C3%A9e_national_des_Beaux-Arts_d%27Alger.jpg',
+};
+const TYPE_PHOTOS={'Mosquée / Lieu de culte':PHOTOS[39],'Fortification':PHOTOS[1],'Site naturel / Paysager':PHOTOS[6],'Palais / Résidence':PHOTOS[1],'Musée':PHOTOS[57],'Site archéologique':PHOTOS[1],'Patrimoine civil / Colonial':PHOTOS[45],'Édifice religieux':PHOTOS[29],'Monument historique':PHOTOS[45],'Patrimoine hydraulique':PHOTOS[1]};
+const GAL_PHOTOS={
+  1:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Algiers_Casbah_general_view.jpg/900px-Algiers_Casbah_general_view.jpg',cap:'Vue générale de la Casbah'},{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Casbah_of_Algiers.jpg/900px-Casbah_of_Algiers.jpg',cap:'Ruelles de la Casbah'}],
+  6:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Jardin_d%27Essai_du_Hamma_Alger.jpg/900px-Jardin_d%27Essai_du_Hamma_Alger.jpg',cap:"Allée de palmiers royaux — Jardin d'Essai"}],
+  14:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b4/Ketchaoua_Mosque_Algiers.jpg/900px-Ketchaoua_Mosque_Algiers.jpg',cap:'Mosquée Ketchaoua'}],
+  22:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f2/Djam%C4%81%27a_al-jad%C4%ABd.jpg/900px-Djam%C4%81%27a_al-jad%C4%ABd.jpg',cap:'Mosquée Djamaâ El-Djedid (La Pêcherie)'}],
+  29:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9f/Notre_Dame_d%27Afrique_Algiers.jpg/900px-Notre_Dame_d%27Afrique_Algiers.jpg',cap:"Basilique Notre-Dame d'Afrique"}],
+  39:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8d/Djamaael-kebir.jpg/900px-Djamaael-kebir.jpg',cap:'Grande Mosquée — Djamaâ El Kébir'}],
+  44:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/63/Universit%C3%A9_d%27Alger.jpg/900px-Universit%C3%A9_d%27Alger.jpg',cap:"Université d'Alger 1 (1909)"}],
+  45:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d0/Grande_Poste_d%27Alger.jpg/900px-Grande_Poste_d%27Alger.jpg',cap:"La Grande Poste d'Alger (1910)"}],
+  46:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Theatre_National_Algerien.jpg/900px-Theatre_National_Algerien.jpg',cap:'Théâtre National Algérien'}],
+  57:[{url:'https://upload.wikimedia.org/wikipedia/commons/thumb/7/74/Mus%C3%A9e_national_des_antiquit%C3%A9s_Alger.jpg/900px-Mus%C3%A9e_national_des_antiquit%C3%A9s_Alger.jpg',cap:'Musée National des Antiquités'}],
+};
+const S=[
+{id:1,nom:"La Casbah d'Alger",lat:36.78472,lon:3.06130,statut:"Classé",type:"Monument historique",periode:"Période ottomane (XVIe-XIXe s.)",description:"La Casbah d'Alger, inscrite au patrimoine mondial UNESCO en 1992, est un joyau de l'architecture islamique méditerranéenne. Ce quartier historique domine la baie d'Alger avec ses ruelles tortueuses, ses maisons à patio, ses palais et ses mosquées."},
+{id:2,nom:"Mosquée Abderrahmane El-Taâlibi",lat:36.78703,lon:3.06201,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"La mosquée Abderrahmane El-Taâlibi abrite le mausolée du saint patron d'Alger (1384–1471). Son architecture mêle les styles arabe et ottoman."},
+{id:3,nom:"Fort dit Barberousse",lat:36.81539,lon:3.01180,statut:"Classé",type:"Fortification",periode:"Période ottomane (XVIe-XIXe s.)",description:"Fortification ottomane du XVIe siècle, doit son nom au corsaire Khayr ad-Din qui fit d'Alger une puissance maritime méditerranéenne."},
+{id:4,nom:"Fort turc de Lapérouse",lat:36.80730,lon:3.23103,statut:"Classé",type:"Fortification",periode:"Période ottomane (XVIe-XIXe s.)",description:"Fort turc de Lapérouse, fortification ottomane classée à l'est de la baie d'Alger."},
+{id:5,nom:"Parc de la Liberté",lat:36.76246,lon:3.04588,statut:"Classé",type:"Site naturel / Paysager",periode:"Plusieurs périodes",description:"Le Parc de la Liberté est un espace vert classé constituant un poumon vert essentiel du tissu urbain algérois."},
+{id:6,nom:"Jardin d'Essai du Hamma",lat:36.74841,lon:3.07578,statut:"Classé",type:"Site naturel / Paysager",periode:"Plusieurs périodes",description:"Le Jardin d'Essai du Hamma, fondé en 1832, est l'un des plus beaux jardins botaniques d'Afrique du Nord. Son allée de palmiers royaux est célèbre dans le monde entier."},
+{id:7,nom:"Jardin Marengo",lat:36.78904,lon:3.05906,statut:"Classé",type:"Site naturel / Paysager",periode:"Plusieurs périodes",description:"Jardin Marengo, espace vert historique classé dans la médina d'Alger."},
+{id:8,nom:"Place Publique",lat:36.77158,lon:3.00440,statut:"Classé",type:"Monument historique",periode:"Période ottomane (XVIe-XIXe s.)",description:"Place Publique, site historique classé de la wilaya d'Alger."},
+{id:9,nom:"Abords de la Villa Mehieddine",lat:36.75462,lon:3.05476,statut:"Classé",type:"Palais / Résidence",periode:"Période coloniale (XIXe-XXe s.)",description:"Ensemble paysager et architectural protégé entourant la résidence présidentielle historique."},
+{id:10,nom:"Forêt de Sidi Fredj",lat:36.75137,lon:2.85901,statut:"Classé",type:"Site naturel / Paysager",periode:"Plusieurs périodes",description:"Massif forestier classé à l'ouest d'Alger, avec végétation méditerranéenne et vues sur la mer."},
+{id:11,nom:"Villa Hussein Dey",lat:36.74109,lon:3.09587,statut:"Classé",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Résidence historique classée de la période ottomane, a donné son nom au quartier éponyme d'Alger-Est."},
+{id:12,nom:"Abords de la villa des arcades",lat:36.74646,lon:3.06843,statut:"Classé",type:"Palais / Résidence",periode:"Période coloniale (XIXe-XXe s.)",description:"Ensemble architectural classé caractéristique du style colonial algérois du XIXe siècle."},
+{id:13,nom:"Forêt de Baïnem",lat:36.79851,lon:2.95452,statut:"Classé",type:"Site naturel / Paysager",periode:"Plusieurs périodes",description:"Massif forestier classé offrant des vues panoramiques exceptionnelles sur la baie d'Alger."},
+{id:14,nom:"Mosquée Ketchaoua",lat:36.78495,lon:3.06081,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"La Mosquée Ketchaoua (XVIIe s.), joyau de la Casbah, transformée en cathédrale puis restituée après l'indépendance. Son architecture mêle art ottoman et influences andalouses."},
+{id:15,nom:"Tombeaux mégalithiques de Béni Messous",lat:36.78351,lon:2.92964,statut:"Classé",type:"Site archéologique",periode:"Antiquité / Préhistoire",description:"Dolmens et tumuli témoignant de l'occupation préhistorique de la région algéroise."},
+{id:16,nom:"Mosquée Mohamed Chérif",lat:36.78377,lon:3.05797,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Édifice religieux ottoman classé au patrimoine de la wilaya d'Alger."},
+{id:17,nom:"Mosquée Ali Betchine",lat:36.78704,lon:3.06189,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Édifice religieux classé dans la Casbah d'Alger, période ottomane."},
+{id:18,nom:"Mosquée et marabouts de Sidi Madjouba",lat:36.77730,lon:3.03025,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Ensemble cultuel et mémoriel classé, témoin de la tradition soufie algéroise."},
+{id:19,nom:"Mosquée Sidi Ramdane",lat:36.78636,lon:3.05829,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Lieu de culte ottoman classé dans la haute Casbah d'Alger."},
+{id:20,nom:"Mosquée Djamaâ Safir",lat:36.78328,lon:3.05758,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Édifice religieux classé de la Casbah d'Alger."},
+{id:21,nom:"Marabout du Jardin Marengo",lat:36.78895,lon:3.05888,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Petit sanctuaire classé témoignant de la tradition des lieux saints dans le tissu urbain algérois."},
+{id:22,nom:"Mosquée Djamaâ El-Djedid (Pêcherie)",lat:36.78493,lon:3.06310,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Mosquée baroque ottomane (XVIIe s.) au plan en croix grecque unique dans l'architecture islamique algérienne."},
+{id:23,nom:"Marabout Hassen Pacha (Ben Ali)",lat:36.78523,lon:3.06088,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Mausolée ottoman classé dans la Casbah d'Alger."},
+{id:24,nom:"Mausolée Sidi M'hamed Boukabrine",lat:36.75039,lon:3.06507,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Sanctuaire classé témoignant du patrimoine cultuel et mémoriel algérois."},
+{id:25,nom:"Ruines romaines de Sidi Fredj",lat:36.76463,lon:2.84564,statut:"Classé",type:"Site archéologique",periode:"Antiquité / Préhistoire",description:"Site archéologique classé renfermant des vestiges romains sur la presqu'île de Sidi Fredj."},
+{id:26,nom:"Abords du bordj Polignac",lat:36.77907,lon:3.01425,statut:"Classé",type:"Fortification",periode:"Période ottomane (XVIe-XIXe s.)",description:"Abords du Bordj Polignac, fortification classée sur les hauteurs d'Alger."},
+{id:27,nom:"Antique Rusguniae (Cap Matifou)",lat:36.80323,lon:3.23994,statut:"Classé",type:"Site archéologique",periode:"Antiquité / Préhistoire",description:"Site de l'ancienne cité romaine de Rusguniae (Cap Matifou), avec vestiges de thermes et nécropoles."},
+{id:28,nom:"Aqueduc de Hydra",lat:36.75583,lon:3.03128,statut:"Classé",type:"Patrimoine hydraulique",periode:"Période ottomane (XVIe-XIXe s.)",description:"Ouvrage hydraulique ottoman classé, alimentant Alger en eau depuis les sources de Hydra."},
+{id:29,nom:"Basilique Notre-Dame d'Afrique",lat:36.80101,lon:3.04259,statut:"Classé",type:"Édifice religieux",periode:"Période coloniale (XIXe-XXe s.)",description:"Chef-d'œuvre néo-byzantin (1858–1872) dominant la baie d'Alger, connu pour son inscription «Notre-Dame d'Afrique, priez pour nous et pour les Musulmans»."},
+{id:30,nom:"Citadelle du fort l'Empereur",lat:36.77282,lon:3.04495,statut:"Classé",type:"Fortification",periode:"Période ottomane (XVIe-XIXe s.)",description:"Forteresse ottomane classée, théâtre de la résistance lors de la conquête française en 1830."},
+{id:31,nom:"Dar El Souf (ex-Cour d'assises)",lat:36.78598,lon:3.06077,statut:"Classé",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Palais ottoman classé de la Casbah, reconverti en Cour d'assises sous la colonisation."},
+{id:32,nom:"Dar Hassen Pacha",lat:36.78524,lon:3.06088,statut:"Classé",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"L'un des plus beaux palais ottomans de la Casbah, avec ses salles décorées, cours intérieures et fontaines de marbre."},
+{id:33,nom:"Dar Mustapha Pacha",lat:36.78560,lon:3.06099,statut:"Classé",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Palais ottoman classé dans la Casbah d'Alger, exemple remarquable de l'architecture civile ottomane."},
+{id:34,nom:"Djenane Lakhdar",lat:36.74390,lon:3.06292,statut:"Classé",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Jardin-palais ottoman classé, témoin des résidences de villégiature de l'aristocratie algéroise."},
+{id:35,nom:"Djenane Rais Hamidou",lat:36.76849,lon:3.02614,statut:"Classé",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Propriété classée associée à l'amiral Hamidou, héros de la marine ottomane algéroise."},
+{id:36,nom:"Fontaine arabe et marabout au Hamma",lat:36.74836,lon:3.07580,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"Fontaine arabe et marabout classés, situés dans les environs du Jardin d'Essai du Hamma."},
+{id:37,nom:"Fontaine de l'Amirauté",lat:36.78708,lon:3.06855,statut:"Classé",type:"Patrimoine hydraulique",periode:"Période ottomane (XVIe-XIXe s.)",description:"Fontaine historique classée témoignant du patrimoine hydraulique ottoman d'Alger."},
+{id:38,nom:"Galleries Algériennes",lat:36.77752,lon:3.05707,statut:"Classé",type:"Monument historique",periode:"Période ottomane (XVIe-XIXe s.)",description:"Galleries Algériennes, ensemble architectural classé du centre-ville d'Alger."},
+{id:39,nom:"Grande Mosquée (Djamaâ El Kébir)",lat:36.78527,lon:3.06428,statut:"Classé",type:"Mosquée / Lieu de culte",periode:"Période ottomane (XVIe-XIXe s.)",description:"La plus ancienne mosquée d'Alger, construite au XIe siècle sous les Zirides, agrandie sous les Ottomans. Classée monument national."},
+{id:40,nom:"Maisons mauresques (Bastion 23)",lat:36.78842,lon:3.06366,statut:"Classé",type:"Fortification",periode:"Période ottomane (XVIe-XIXe s.)",description:"Groupe de maisons mauresques classées dans la partie haute de la Casbah."},
+{id:41,nom:"Maison du Khaznadji (ex-Archevêché)",lat:36.77597,lon:3.04011,statut:"Classé",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Ancienne résidence du trésorier de la régence ottomane, transformée en archevêché sous la colonisation."},
+{id:42,nom:"Phare de Cap Caxine",lat:36.81318,lon:2.95292,statut:"Classé",type:"Patrimoine civil / Colonial",periode:"Période coloniale (XIXe-XXe s.)",description:"Édifice maritime classé sur le promontoire le plus avancé à l'ouest d'Alger."},
+{id:43,nom:"Prison de Barberousse (Serkadji)",lat:36.78582,lon:3.05615,statut:"Classé",type:"Fortification",periode:"Période coloniale (XIXe-XXe s.)",description:"Lieu de mémoire de la guerre de libération nationale, théâtre des exécutions de résistants algériens."},
+{id:44,nom:"Université d'Alger 1 (ex-faculté centrale)",lat:36.77065,lon:3.05563,statut:"Classé",type:"Patrimoine civil / Colonial",periode:"Période coloniale (XIXe-XXe s.)",description:"Bâtiment de 1909, exemple remarquable de l'architecture néo-mauresque."},
+{id:45,nom:"Siège de la Grande Poste",lat:36.77296,lon:3.05933,statut:"Classé",type:"Patrimoine civil / Colonial",periode:"Période coloniale (XIXe-XXe s.)",description:"La Grande Poste d'Alger (1910), chef-d'œuvre néo-mauresque de Jules Voinot et Marius Toudoire."},
+{id:46,nom:"Théâtre national Algérien",lat:36.78116,lon:3.06037,statut:"Classé",type:"Patrimoine civil / Colonial",periode:"Période coloniale (XIXe-XXe s.)",description:"Le Théâtre National Algérien Mahieddine Bachtarzi (1853), institution théâtrale principale d'Algérie."},
+{id:47,nom:"Villa Abdelatif (Abd el Tif)",lat:36.74472,lon:3.07291,statut:"Classé",type:"Palais / Résidence",periode:"Période coloniale (XIXe-XXe s.)",description:"Palais classé ayant accueilli des artistes peintres en résidence."},
+{id:48,nom:"Villa des Arcades",lat:36.74662,lon:3.06846,statut:"Classé",type:"Palais / Résidence",periode:"Période coloniale (XIXe-XXe s.)",description:"Résidence historique classée caractéristique de l'architecture de villégiature algéroise."},
+{id:49,nom:"Villa Sésini",lat:36.74748,lon:3.06471,statut:"Classé",type:"Palais / Résidence",periode:"Période coloniale (XIXe-XXe s.)",description:"Villa historique classée, lieu de mémoire de la guerre d'indépendance algérienne."},
+{id:50,nom:"Forêt domaniale du Télégraphe",lat:36.75054,lon:3.04446,statut:"Classé",type:"Site naturel / Paysager",periode:"Plusieurs périodes",description:"Forêt domaniale dite 'Bois de Boulogne d'Alger', espace vert classé sur les hauteurs de la ville."},
+{id:51,nom:"Villa Second-Weber et Falaise Saint-Raphaël",lat:36.76773,lon:3.03904,statut:"Classé",type:"Site naturel / Paysager",periode:"Période coloniale (XIXe-XXe s.)",description:"Ensemble classé : villa et bois de pins sur l'éperon de la Falaise Saint-Raphaël à El Biar."},
+{id:52,nom:"Falaise Saint-Raphaël (partie Nord)",lat:36.76696,lon:3.03961,statut:"Classé",type:"Site naturel / Paysager",periode:"Plusieurs périodes",description:"Site naturel classé offrant des vues exceptionnelles sur la baie d'Alger."},
+{id:53,nom:"Fort dit Barberousse (inscrit)",lat:36.81559,lon:3.01188,statut:"Inscrit à l'inventaire",type:"Fortification",periode:"Période ottomane (XVIe-XIXe s.)",description:"Fort dit Barberousse, inscrit à l'inventaire du patrimoine de la wilaya d'Alger."},
+{id:54,nom:"Fort Turc de Bordj El Kiffan",lat:36.74901,lon:3.18793,statut:"Inscrit à l'inventaire",type:"Fortification",periode:"Période ottomane (XVIe-XIXe s.)",description:"Fortification ottomane inscrite à l'inventaire, situé à l'est de la baie d'Alger."},
+{id:55,nom:"Maison d'Ali la Pointe",lat:36.78342,lon:3.05884,statut:"Inscrit à l'inventaire",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Lieu de mémoire de la Révolution : Ali la Pointe et ses compagnons y trouvèrent la mort en 1957 lors de la Bataille d'Alger."},
+{id:56,nom:"Musée du Bardo",lat:36.76072,lon:3.04721,statut:"Inscrit à l'inventaire",type:"Musée",periode:"Période ottomane (XVIe-XIXe s.)",description:"Musée national installé dans une demeure ottomane du XVIIIe siècle, l'un des plus riches musées ethnographiques d'Algérie."},
+{id:57,nom:"Musée National des Antiquités",lat:36.76158,lon:3.04576,statut:"Inscrit à l'inventaire",type:"Musée",periode:"Période ottomane (XVIe-XIXe s.)",description:"Le plus riche musée d'archéologie algérienne, de la préhistoire à la période islamique."},
+{id:58,nom:"Musée National des Beaux Arts",lat:36.74599,lon:3.07227,statut:"Inscrit à l'inventaire",type:"Musée",periode:"Période ottomane (XVIe-XIXe s.)",description:"L'une des collections artistiques les plus importantes d'Afrique du Nord."},
+{id:59,nom:"Palais du Peuple",lat:36.75907,lon:3.04617,statut:"Inscrit à l'inventaire",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Ensemble de palais et jardins sur les hauteurs d'El Mouradia, résidence officielle du Président."},
+{id:60,nom:"Palais Mustapha Pacha",lat:36.78520,lon:3.06090,statut:"Inscrit à l'inventaire",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Splendide exemple de l'architecture ottomane civile de la Casbah d'Alger."},
+{id:61,nom:"Édifice de l'hôtel El Djazair",lat:36.75397,lon:3.04627,statut:"Inscrit à l'inventaire",type:"Monument historique",periode:"Période ottomane (XVIe-XIXe s.)",description:"Bâtiment historique de style mauresque (ancien Hôtel Saint George)."},
+{id:62,nom:"Palais Boulkine",lat:36.74103,lon:3.09586,statut:"Inscrit à l'inventaire",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Résidence ottomane inscrite à l'inventaire du patrimoine de la wilaya d'Alger."},
+{id:63,nom:"Les Dolmens d'Aïn Bénian",lat:36.78802,lon:2.92096,statut:"Inscrit à l'inventaire",type:"Site archéologique",periode:"Antiquité / Préhistoire",description:"Ensemble mégalithique préhistorique inscrit à l'inventaire."},
+{id:64,nom:"Fort Stamboul",lat:36.76767,lon:3.22348,statut:"Inscrit à l'inventaire",type:"Fortification",periode:"Période ottomane (XVIe-XIXe s.)",description:"Fortification ottomane inscrite à l'inventaire, situé à l'est d'Alger."},
+{id:65,nom:"Djenan Qsub El Hind",lat:36.74832,lon:3.06908,statut:"Inscrit à l'inventaire",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Jardin-palais ottoman inscrit à l'inventaire du patrimoine algérien."},
+{id:66,nom:"Palais Rahet El Dey",lat:36.80561,lon:3.03268,statut:"Inscrit à l'inventaire",type:"Palais / Résidence",periode:"Période ottomane (XVIe-XIXe s.)",description:"Ancienne résidence de repos des souverains ottomans d'Alger."},
+{id:67,nom:"Siège de la wilaya d'Alger",lat:36.77529,lon:3.05934,statut:"Inscrit à l'inventaire",type:"Monument historique",periode:"Période ottomane (XVIe-XIXe s.)",description:"Édifice historique inscrit à l'inventaire, témoignant de l'histoire administrative d'Alger."}
+];
+
+/* ══ NAVIGATION ══ */
+const PAGES=['home','map','features','circuits','infos','blog','contact'];
+function goPg(id){
+  PAGES.forEach(p=>{const pg=document.getElementById('pg-'+p);if(pg)pg.classList.remove('act')});
+  document.querySelectorAll('.nlink').forEach(l=>l.classList.remove('act'));
+  const pg=document.getElementById('pg-'+id);if(pg)pg.classList.add('act');
+  document.querySelectorAll('.nlink').forEach(l=>{
+    const t=l.textContent.toLowerCase();
+    if((id==='home'&&(t.includes('accueil')||t.includes('home')||t.includes('رئيسية')))||(id==='map'&&(t.includes('carte')||t.includes('map')||t.includes('خريطة')))||(id==='circuits'&&(t.includes('circuit')||t.includes('tour')||t.includes('مسار')))||(id==='infos'&&(t.includes('info')||t.includes('visitor')||t.includes('معلومات')))||(id==='blog'&&t.includes('blog'))||(id==='contact'&&(t.includes('contact')||t.includes('تواصل'))))l.classList.add('act');
+  });
+  if(id==='map'&&!mapReady)initMap();
+  if(pg&&pg.scrollTo)pg.scrollTo(0,0);
+}
+function toggleMob(){document.getElementById('mob-menu').classList.toggle('open')}
+function goSite(id){goPg('map');setTimeout(()=>{const s=S.find(x=>x.id===id);if(s){openD(s);flyTo(s)}},350)}
+
+/* ══ BLOG FILTER ══ */
+function fblog(el,cat){
+  document.querySelectorAll('.btag').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');
+  document.querySelectorAll('.bcard').forEach(c=>{c.style.display=(cat==='all'||c.dataset.cat===cat)?'':'none'});
+}
+
+/* ══ CIRCUITS ══ */
+function showCirc(btn,id){
+  document.querySelectorAll('.circ-card').forEach(c=>c.classList.remove('act'));
+  document.querySelectorAll('.ctab').forEach(t=>t.classList.remove('act'));
+  document.getElementById('circ-'+id).classList.add('act');
+  btn.classList.add('act');
+}
+function saveCircuit(id){
+  const n={ottoman:'Circuit Ottoman',colonial:'Circuit Colonial',nature:'Circuit Nature',romain:'Circuit Romain',memoire:'Circuit Mémoire'};
+  let sv=JSON.parse(localStorage.getItem('alg_circuits')||'[]');
+  if(!sv.includes(id)){sv.push(id);localStorage.setItem('alg_circuits',JSON.stringify(sv));alert('✅ '+n[id]+' sauvegardé !')}
+  else alert('Ce circuit est déjà sauvegardé.');
+}
+
+/* ══ CONTACT ══ */
+function sendForm(){const s=document.getElementById('fsuccess');s.style.display='block';setTimeout(()=>s.style.display='none',5000)}
+
+/* ══ MAP ══ */
+let mapReady=false,map,mkrs={},filt=[...S],selId=null,cur=null;
+let favs=JSON.parse(localStorage.getItem('alg_favs')||'[]');
+let af='all',aTypes=new Set(),aPers=new Set(),sq='';
+function initMap(){
+  mapReady=true;
+  map=L.map('map',{center:[36.77,3.06],zoom:12});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap © CARTO',maxZoom:19}).addTo(map);
+  buildFUI();renderList();buildMkrs();
+}
+function mkIcon(s){
+  const e=TI[s.type]||'📍',c=s.statut==='Classé'?'#C9973A':'#2A6B6B';
+  return L.divIcon({html:`<div class="mdot" id="md-${s.id}" style="background:${c}">${e}</div>`,className:'cm',iconSize:[28,28],iconAnchor:[14,28]});
+}
+function buildMkrs(){Object.values(mkrs).forEach(m=>map.removeLayer(m));mkrs={};filt.forEach(s=>{const m=L.marker([s.lat,s.lon],{icon:mkIcon(s)});m.on('click',()=>{openD(s);flyTo(s)});m.addTo(map);mkrs[s.id]=m})}
+function buildFUI(){
+  const types=[...new Set(S.map(s=>s.type))].sort();
+  const pers=[...new Set(S.map(s=>s.periode))].sort();
+  const tf=document.getElementById('tf'),pf=document.getElementById('pf');
+  types.forEach(t=>{const el=document.createElement('span');el.className='atag';el.textContent=(TI[t]||'')+' '+t;el.onclick=()=>{aTypes.has(t)?aTypes.delete(t):aTypes.add(t);el.classList.toggle('sel');applyF()};tf.appendChild(el)});
+  pers.forEach(p=>{const el=document.createElement('span');el.className='atag';el.textContent=p;el.onclick=()=>{aPers.has(p)?aPers.delete(p):aPers.add(p);el.classList.toggle('sel');applyF()};pf.appendChild(el)});
+  document.querySelectorAll('#fchips .fchip').forEach(c=>c.addEventListener('click',()=>{const f=c.dataset.f;if(f==='adv'){document.getElementById('advp').classList.toggle('open');return}document.querySelectorAll('#fchips .fchip').forEach(x=>x.classList.remove('act'));c.classList.add('act');af=f;applyF()}));
+  document.getElementById('sinput').addEventListener('input',e=>{sq=e.target.value;applyF()});
+}
+function applyF(){
+  filt=S.filter(s=>{
+    if(sq&&!s.nom.toLowerCase().includes(sq.toLowerCase())&&!s.type.toLowerCase().includes(sq.toLowerCase()))return false;
+    if(af==='Classé'&&s.statut!=='Classé')return false;
+    if(af==='Inscrit'&&!s.statut.startsWith('Inscrit'))return false;
+    if(af==='fav'&&!favs.includes(s.id))return false;
+    if(aTypes.size>0&&!aTypes.has(s.type))return false;
+    if(aPers.size>0&&!aPers.has(s.periode))return false;
+    return true;
+  });
+  renderList();buildMkrs();
+  document.getElementById('vbdg').textContent=filt.length+' visibles';
+  document.getElementById('rlbl').textContent=filt.length+' site'+(filt.length>1?'s':'');
+}
+function renderList(){
+  const l=document.getElementById('slist');l.innerHTML='';
+  filt.forEach(s=>{
+    const fv=favs.includes(s.id)?' ⭐':'';
+    const d=document.createElement('div');d.className='sitm'+(selId===s.id?' act':'');d.id='li'+s.id;
+    d.innerHTML=`<div class="sico2" style="background:${TC[s.type]||'#555'}22;color:${TC[s.type]||'#555'}">${TI[s.type]||'📍'}</div><div style="flex:1;min-width:0"><div class="sn">${s.nom}${fv}</div><div style="display:flex;gap:4px;flex-wrap:wrap"><span class="bdg ${s.statut==='Classé'?'bdc':'bdi'}">${s.statut}</span><span class="bdg bdt">${s.type}</span></div></div>`;
+    d.onclick=()=>{openD(s);flyTo(s)};l.appendChild(d);
+  });
+}
+function openD(s){
+  cur=s;selId=s.id;
+  document.getElementById('demoji').textContent=TI[s.type]||'🏛';
+  document.getElementById('dname').textContent=s.nom;
+  document.getElementById('ddesc').textContent=s.description;
+  document.getElementById('dbadges').innerHTML=`<span class="bdg ${s.statut==='Classé'?'bdc':'bdi'}" style="font-size:11px;padding:3px 9px">${s.statut}</span><span class="bdg bdt" style="font-size:11px;padding:3px 9px">${TI[s.type]} ${s.type}</span>`;
+  document.getElementById('dgrid').innerHTML=`<div class="dfield"><div class="dflbl">Wilaya</div><div class="dfval">Alger</div></div><div class="dfield"><div class="dflbl">Période</div><div class="dfval">${s.periode}</div></div><div class="dfield" style="grid-column:span 2"><div class="dflbl">Type</div><div class="dfval">${s.type}</div></div>`;
+  document.getElementById('dcoords').innerHTML=`📍 ${s.lat.toFixed(5)}, ${s.lon.toFixed(5)}`;
+  const fb=document.getElementById('btnfav');fb.className='dbtn dbtn-fav'+(favs.includes(s.id)?' on':'');
+  fb.innerHTML=favs.includes(s.id)?`⭐ <span data-i18n="btn_fav_on">Dans les favoris</span>`:`☆ <span data-i18n="btn_fav">${T[curLang].btn_fav||'Ajouter aux favoris'}</span>`;
+  // Photo
+  const pw=document.getElementById('dphoto-wrap');
+  const pu=PHOTOS[s.id]||TYPE_PHOTOS[s.type]||'';
+  if(pu){pw.innerHTML=`<img src="${pu}" alt="${s.nom}" onerror="this.parentNode.style.display='none'"><span class="dphoto-credit">© Wikimedia CC</span>`;pw.style.display='block';}
+  else pw.style.display='none';
+  document.getElementById('dp').classList.add('open');
+  document.getElementById('dqrwrap').classList.remove('show');
+  document.querySelectorAll('.sitm').forEach(el=>el.classList.remove('act'));
+  const li=document.getElementById('li'+s.id);if(li){li.classList.add('act');li.scrollIntoView({block:'nearest'})}
+  Object.keys(mkrs).forEach(id=>{const d=document.getElementById('md-'+id);if(d)d.classList.remove('ma')});
+  const dot=document.getElementById('md-'+s.id);if(dot)dot.classList.add('ma');
+}
+function closeD(){document.getElementById('dp').classList.remove('open');selId=null;document.querySelectorAll('.sitm').forEach(el=>el.classList.remove('act'));Object.keys(mkrs).forEach(id=>{const d=document.getElementById('md-'+id);if(d)d.classList.remove('ma')})}
+function flyTo(s){map.flyTo([s.lat,s.lon],16,{duration:1.2})}
+function locSite(){if(cur)flyTo(cur)}
+function togFav(){if(!cur)return;const i=favs.indexOf(cur.id);if(i===-1)favs.push(cur.id);else favs.splice(i,1);localStorage.setItem('alg_favs',JSON.stringify(favs));openD(cur);renderList()}
+
+/* ══ QR ══ */
+let dqrObj=null;
+function togDQR(){
+  const w=document.getElementById('dqrwrap');
+  if(w.classList.contains('show')){w.classList.remove('show');return}
+  w.classList.add('show');
+  document.getElementById('dqrc').innerHTML='';
+  dqrObj=new QRCode(document.getElementById('dqrc'),{text:`https://patrimoine-alger.dz/site/${cur.id}`,width:130,height:130,colorDark:'#1A1209',colorLight:'#FFFFFF',correctLevel:QRCode.CorrectLevel.M});
+}
+function dlDQR(){const c=document.querySelector('#dqrc canvas');if(!c)return;const a=document.createElement('a');a.download=`qr_${cur.id}.png`;a.href=c.toDataURL('image/png');a.click()}
+let qrObj=null;
+function buildSQGrid(){
+  const g=document.getElementById('sqgrid');if(!g)return;
+  S.forEach(s=>{const b=document.createElement('button');b.className='sqbtn';b.textContent=(TI[s.type]||'')+' '+s.nom;b.onclick=()=>{document.querySelectorAll('.sqbtn').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');const url=`https://patrimoine-alger.dz/site/${s.id}`;document.getElementById('qrurl').value=url;document.getElementById('qrlbl').textContent=s.nom;genQR(url)};g.appendChild(b)});
+}
+function genQR(url){
+  const sz=parseInt(document.getElementById('qrsz').value)||220;
+  document.getElementById('qrcode').innerHTML='';
+  qrObj=new QRCode(document.getElementById('qrcode'),{text:url||'https://patrimoine-alger.dz',width:sz,height:sz,colorDark:'#1A1209',colorLight:'#FFFFFF',correctLevel:QRCode.CorrectLevel.M});
+}
+function dlQR(){const c=document.querySelector('#qrcode canvas');if(!c)return;const a=document.createElement('a');a.download='qr_patrimoine.png';a.href=c.toDataURL('image/png');a.click()}
+
+/* ══ GALERIE ══ */
+let galPhotos=[],galIdx=0;
+const GAL_FALLBACK={
+  'Mosquée / Lieu de culte':[{url:PHOTOS[39],cap:'Mosquée d\'Alger'}],
+  'Fortification':[{url:PHOTOS[1],cap:'Patrimoine défensif d\'Alger'}],
+  'Site naturel / Paysager':[{url:PHOTOS[6],cap:'Sites naturels classés'}],
+  'Palais / Résidence':[{url:PHOTOS[1],cap:'Patrimoine civil ottoman'}],
+  'Musée':[{url:PHOTOS[57],cap:'Musées d\'Alger'}],
+  'Patrimoine civil / Colonial':[{url:PHOTOS[45],cap:'Architecture coloniale d\'Alger'}],
+  'Édifice religieux':[{url:PHOTOS[29],cap:'Édifices religieux d\'Alger'}],
+  'Site archéologique':[{url:PHOTOS[1],cap:'Sites archéologiques d\'Alger'}],
+  'Monument historique':[{url:PHOTOS[45],cap:'Monuments historiques d\'Alger'}],
+  'Patrimoine hydraulique':[{url:PHOTOS[1],cap:'Patrimoine hydraulique'}],
+};
+function openGalerie(s){
+  if(!s)return;
+  const photos=GAL_PHOTOS[s.id]||(GAL_FALLBACK[s.type]||[{url:TYPE_PHOTOS[s.type]||PHOTOS[1],cap:s.nom}]);
+  galPhotos=photos.filter(p=>p.url);galIdx=0;
+  if(!galPhotos.length){alert('Pas de galerie disponible pour ce site.');return}
+  document.getElementById('gal-site-name').textContent=s.nom;
+  document.getElementById('gal-overlay').classList.add('open');
+  renderGal();
+}
+function renderGal(){
+  const p=galPhotos[galIdx];
+  const img=document.getElementById('gal-main-img');img.src=p.url;img.alt=p.cap;
+  document.getElementById('gal-cap-title').textContent=p.cap;
+  document.getElementById('gal-counter').textContent=(galIdx+1)+' / '+galPhotos.length;
+  const tb=document.getElementById('gal-thumbs');tb.innerHTML='';
+  galPhotos.forEach((ph,i)=>{const d=document.createElement('div');d.className='gal-thumb'+(i===galIdx?' act':'');d.innerHTML=`<img src="${ph.url}" loading="lazy">`;d.onclick=()=>{galIdx=i;renderGal()};tb.appendChild(d)});
+}
+function galNav(dir){galIdx=(galIdx+dir+galPhotos.length)%galPhotos.length;renderGal()}
+function closeGalerie(){document.getElementById('gal-overlay').classList.remove('open')}
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('gal-overlay').classList.contains('open'))return;
+  if(e.key==='ArrowRight')galNav(1);else if(e.key==='ArrowLeft')galNav(-1);else if(e.key==='Escape')closeGalerie();
+});
+
+/* ══ INIT ══ */
+document.addEventListener('DOMContentLoaded',()=>{
+  buildSQGrid();
+  setTimeout(()=>genQR('https://patrimoine-alger.dz'),300);
+  document.getElementById('qrurl').addEventListener('input',e=>genQR(e.target.value));
+  document.getElementById('qrsz').addEventListener('change',()=>genQR(document.getElementById('qrurl').value));
+});
+</script>
+</body>
+</html>
